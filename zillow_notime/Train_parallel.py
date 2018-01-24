@@ -2,6 +2,7 @@ from keras.callbacks import EarlyStopping, Callback
 from keras.layers import Dense, LSTMCell, RNN, StackedRNNCells
 from keras.models import Sequential
 from keras.utils import multi_gpu_model
+from keras.optimers import SGD,RMSProp,AdaDelta,Adam
 import numpy as np
 import tensorflow as tf
 import pickle
@@ -63,7 +64,14 @@ class Train(object):
         # print(Y_train.shape)
         model = self.build_model()
         model2 = self.parallel_model(model)
-        model2.compile(loss=self.cus_loss, optimizer="SGD")
+        #build the map of opt
+        opt = {"1":SGD(lr=self.learning_rate,decay=self.decay_rate),
+                "2":RMSProp(lr=self.learning_rate,decay=self.decay_rate)
+                "3":AdaDelta(lr=self.learning_rate,decay=self.decay_rate)
+                "4":Adam(lr=self.learning_rate,decay=self.decay_rate)}
+        optimizer = opt["%d"%self.optimizer]
+
+        model2.compile(loss=self.cus_loss, optimizer=optimizer)
 
         model2.fit(X_train, Y_train, epochs=self.MAX_TRAINING_STEP, batch_size=self.batch_size,
                    callbacks=[callback, ], validation_data=(X_val, Y_val))
@@ -86,11 +94,22 @@ class Train(object):
 
     def build_model(self):
         with tf.device('/cpu:0'):
+            '''
+            #this kind of model will be abandoned
             model = Sequential()
             cells = [LSTMCell(self.state_size) for _ in range(2)]
             cell = StackedRNNCells(cells)
             model.add(RNN(cell, return_sequences=True, input_shape=[None, self.feature_size]))
             model.add(Dense(1))
+            '''
+            #add the activation Function
+            #add initializer
+            #add dropout layer
+        	house_input = Input(shape=(None,None,33),dtype='float32')
+    		house_middle = LSTM(units,return_sequences = True,activation=self.activation_f,kernel_initializer=self.initializer)(house_input)
+    		house_output = LSTM(units,return_sequences = True,activation=self.activation_f,kernel_initializer=self.initializer)(house_middle)
+            finale_output = Dense(1)(house_output)
+            model =Model(inputs=house_input,outputs=finale_output)
         return model
 
     def parallel_model(self, model):
@@ -142,5 +161,3 @@ class Train(object):
         self.test_logerror = logerror_df[valid_end: test_end].values
 
         self.feature_size = train_df.shape[1]
-
-
