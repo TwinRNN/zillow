@@ -25,7 +25,7 @@ class Genetic(object):
         LR: 2^4  -> 4
         Rest network params: 2^2 -> 2 * 8
         4 + 16 = 20
-        
+
         """
         GENE_LENGTH = 20
 
@@ -105,7 +105,7 @@ class Genetic(object):
         net_name = ['lr', 'batch_size', 'seq_len', 'state_size', 'dr', 'pkeep', 'optimizer', 'activation_f', 'initializer']
         network_params = {}
         network_params['lr'] = LR[BitArray(params[0: NUM_NET_1 * 4]).uint]
-        for i in range(NUM_NET_2):
+        for i in range(NUM_NET_2):#what is the NUM_NET_2?
             name = net_name[i + 1]
             network_params[name] = BitArray(params[4 + i * 2: 4 + i * 2 + 2]).uint
         network_params['batch_size'] = BATCH_SIZE[network_params['batch_size']]
@@ -113,6 +113,10 @@ class Genetic(object):
         network_params['state_size'] = STATE_SIZE[network_params['state_size']]
         network_params['dr'] = DR[network_params['dr']]
         network_params['pkeep'] = PKEEP[network_params['pkeep']]
+        #there seems no optimizer
+        #keras offers different opt: SGD,RMSProp,AdaDelta,Adam here we gonna use these four opt
+        #we can do this:
+        #1 -> SGD 2->RMSProp 3->AdaDelta 4->Adam
         network_params['activation_f'] = ACTIVATION[network_params['activation_f']]
         network_params['initializer'] = INIT[network_params['initializer']]
         return network_params
