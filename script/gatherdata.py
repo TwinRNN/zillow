@@ -1,6 +1,26 @@
 import dataset_zillow
 import numpy as np
 def gather():
+    time_series_params={}
+    time_series_params['time_series_step_days']=20
+    time_series_params['time_series_step_weeks']=20
+    time_series_params['time_series_step_months']=20
+
+    time_series_params['delay_google_days']=30
+    time_series_params['delay_tweeter_days']=30
+    time_series_params['delay_macro_days']=30
+    time_series_params['delay_tweeter_re_days']=30
+
+    time_series_params['delay_google_weeks']=30
+    time_series_params['delay_tweeter_weeks']=30
+    time_series_params['delay_macro_weeks']=30
+    time_series_params['delay_tweeter_re_weeks']=30
+    
+    time_series_params['delay_google_months']=30
+    time_series_params['delay_tweeter_months']=30
+    time_series_params['delay_macro_months']=30
+    time_series_params['delay_tweeter_re_months']=30
+
     dataset = dataset_zillow(128,20,time_series_params)
     dataset.split(3600,117600,3600,3600,0)
     total_batch = int(150000/128)
