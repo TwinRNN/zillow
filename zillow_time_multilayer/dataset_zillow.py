@@ -266,16 +266,16 @@ class Dataset(object):
                 np.concatenate(X_train, train, axis=0)
                 np.concatenate(Y_train, tr_logerror, axis=0)
                 np.concatenate(macro_train_days, macro_features_days, axis=0)
-                np.concatenate(macro_train_months, macro_features_weeks, axis=0)
-                np.concatenate(macro_train_weeks, macro_features_months, axis=0)
+                np.concatenate(macro_train_weeks, macro_features_weeks, axis=0)
+                np.concatenate(macro_train_months, macro_features_months, axis=0)
 
+        valid, valid_logerror, macro_valid_days, macro_valid_weeks, macro_valid_months = self.valid_data()
 
-        valid, valid_logerror, macro_features_days, macro_features_weeks, macro_features_months = self.valid_data()
+        test, test_logerror, macro_test_days, macro_test_weeks, macro_test_months = self.test_data()
 
-        test, test_logerror, macro_features_days, macro_features_weeks, macro_features_months = self.test_data()
-
-        return X_train, Y_train, macro_train, valid, valid_logerror, macro_features_days, macro_features_weeks, \
-               macro_features_months, test, test_logerror, macro_features_days, macro_features_weeks, macro_features_months
+        return X_train, Y_train, macro_train_days, macro_train_weeks, macro_train_months, \
+               valid, valid_logerror, macro_valid_days, macro_valid_weeks, macro_valid_months, \
+               test, test_logerror, macro_test_days, macro_test_weeks, macro_test_months
 
 if __name__ == '__main__':
     d = Dataset()
