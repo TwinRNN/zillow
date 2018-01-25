@@ -131,8 +131,8 @@ if __name__ == '__main__':
                         default='0', help='model index')
     parser.add_argument('--forward', type=int,
                         default=3600, help='number of steps for moving forward')
-    parser.add_argument('--max_step', type=int,
-                        default=1000, help='max number of steps')
+    parser.add_argument('--max_epoch', type=int,
+                        default=1000, help='max number of epochs')
     parser.add_argument('--population', type=int,
                         default=30, help='population')
     parser.add_argument('--generation', type=int,
@@ -150,7 +150,7 @@ if __name__ == '__main__':
     FLAGS, _ = parser.parse_known_args()
 
     model_params = {'train_init': FLAGS.train_init, 'model_num': FLAGS.model_index, 'valid_num': FLAGS.valid_num,
-                    'test_num': FLAGS.test_num, 'max_step': FLAGS.max_step, 'forward': FLAGS.forward}
+                    'test_num': FLAGS.test_num, 'max_epoch': FLAGS.max_epoch, 'forward': FLAGS.forward}
 
     # best_params = []
     # errors = []

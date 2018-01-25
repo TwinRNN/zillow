@@ -16,7 +16,7 @@ class Train(object):
         """
         Initialize a RNN with given parameters
         """
-        self.MAX_TRAINING_STEP = model_params['max_step']
+        self.MAX_EPOCH = model_params['max_epoch']
         """
         parameters for networks
         """
@@ -66,16 +66,16 @@ class Train(object):
 
         model2 = self.parallel_model(model)
         #build the map of opt
-        opt = {"1": SGD(lr=self.learning_rate, decay=self.decay_rate),
-                "2": RMSprop(lr=self.learning_rate, decay=self.decay_rate),
-                "3": Adadelta(lr=self.learning_rate, decay=self.decay_rate),
-                "4": Adam(lr=self.learning_rate, decay=self.decay_rate)}
+        opt = {"0": SGD(lr=self.learning_rate, decay=self.decay_rate),
+                "1": RMSprop(lr=self.learning_rate, decay=self.decay_rate),
+                "2": Adadelta(lr=self.learning_rate, decay=self.decay_rate),
+                "3": Adam(lr=self.learning_rate, decay=self.decay_rate)}
         optimizer = opt["%d" % self.optimizer]
 
         model2.compile(loss=self.cus_loss, optimizer=optimizer)
 
-        model2.fit(X_train, Y_train, epochs=self.MAX_TRAINING_STEP, batch_size=self.batch_size,
-                   callbacks=[callback, ], validation_data=(X_val, Y_val), shuffle=False)
+        model2.fit(X_train, Y_train, epochs=self.MAX_EPOCH, batch_size=self.batch_size,
+                   callbacks=callback, validation_data=(X_val, Y_val), shuffle=False)
 
         valid_error = history.losses[-1]
         if valid_error < self.best_valid_error_global:
