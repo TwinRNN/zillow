@@ -7,7 +7,8 @@ from scipy.stats import bernoulli
 from bitstring import BitArray
 from deap import base, creator, tools, algorithms
 import numpy as np
-from keras.initializers import zeros,TruncatedNormal,Orthogonal,RandomUniform
+from keras.initializers import zeros, TruncatedNormal, Orthogonal, RandomUniform
+FLAGS = None
 
 
 class Genetic(object):
@@ -23,12 +24,12 @@ class Genetic(object):
         """
         LR: 2^4  -> 4
         Rest network params: 2^2 -> 2 * 8
-        Delay params: 2^3 -> 3 * 4
-        time_series step: 2^2  -> 2
-        4 + 16 + 12 + 2= 34
+        Delay params: 2^3 -> 3 * 4 * 3
+        time_series step: 2^2  -> 2 * 3
+        4 + 16 + 36 + 6= 62
         
         """
-        GENE_LENGTH = 34
+        GENE_LENGTH = 62
 
 
         # one-variable minimize
@@ -52,8 +53,6 @@ class Genetic(object):
         self.test_error = 0
         self.best_params = {}
 
-
-
     def eval(self, individual):
         """
         Evaluate Function
@@ -63,12 +62,6 @@ class Genetic(object):
         # network_param = {'batch_size': individual[0], 'seq_len':
         # individual[1], 'state_size': individual[2], ''}
         network_params, timeseries_params = self.decoder(individual)
-
-        # train
-        # net = basic_train_zillow.BasicTrain(
-            # network_params, self.model_param, timeseries_params,
-            # self.best_valid_error_global, self.test_error)
-
         net = Train_parallel.BasicTrain(
             network_params, self.model_param, timeseries_params,
             self.best_valid_error_global, self.test_error)
@@ -83,7 +76,7 @@ class Genetic(object):
     def search(self):
         population = self.toolbox.population(n=self.population)
         r = algorithms.eaSimple(population, self.toolbox, cxpb=0.4, mutpb=0.1,
-                                ngen=self.generation, verbose=False)
+                                ngen=self.generation, verbose=True)
         # best_individuals = tools.selBest(population, 1)[0]
         # all_individuals = tools.selBest(population, 2)
         # print ('pop_1:', all_individuals[0])
@@ -100,7 +93,8 @@ class Genetic(object):
         print('genetic_params:', params)
         NUM_NET_1 = 1  # for LR
         NUM_NET_2 = 8  # for the rest network params
-        NUM_TIME = 1
+        NUM_TIME = 3
+        NUM_DELAY_TYPE = 3
         NUM_DELAY = 4
 
         # netowr_params
@@ -128,13 +122,27 @@ class Genetic(object):
 
         # timeseries_params
         timeseries_params = {}
+
+        TIME_STEP_DAYS = [7, 14, 30, 60]
+        TIME_STEP_WEEKS = [4, 8, 12, 24]
+        TIME_STEP_MONTHS = [2, 3, 6, 9]
+        TIME_STEP = [TIME_STEP_DAYS, TIME_STEP_WEEKS, TIME_STEP_MONTHS]
+        step_name = ['time_series_step_days', 'time_series_step_weeks', 'time_series_step_months']
+        for index in range(NUM_TIME):
+            name = step_name[index]
+            step = TIME_STEP[index]
+            timeseries_params[name] = step[BitArray(params[20 + index * 2: 20 + index * 2 + 2]).uint]
+
         DELAY = [7, 14, 30, 60, 90, 120, 150, 180]
-        TIME_STEP = [10,20,30,40]
-        timeseries_params['time_series_step'] = TIME_STEP[BitArray(params[20: 20 + NUM_TIME * 2]).uint]
-        time_name =['delay_google', 'delay_tweeter', 'delay_macro', 'delay_tweeter_re']
-        for i in range(NUM_DELAY):
-            name = time_name[i]
-            timeseries_params[name] = DELAY[BitArray(params[22 + i * 3: 22 + i * 3 + 3]).uint]
+        delay_name_days = ['delay_google_days', 'delay_tweeter_days', 'delay_macro_days', 'delay_tweeter_re_days']
+        delay_name_weeks = ['delay_google_weeks', 'delay_tweeter_weeks', 'delay_macro_weeks', 'delay_tweeter_re_weeks']
+        delay_name_months = ['delay_google_months', 'delay_tweeter_months', 'delay_macro_months', 'delay_tweeter_re_months']
+        delay_name = [delay_name_days, delay_name_weeks, delay_name_months]
+        for type in range(NUM_DELAY_TYPE):
+            name_list = delay_name[type]
+            for index in range(NUM_DELAY):
+                name = name_list[index]
+                timeseries_params[name] = DELAY[BitArray(params[26 + index * 3: 26 + index * 3 + 3]).uint]
         return network_params, timeseries_params
 
 if __name__ == '__main__':
@@ -150,7 +158,7 @@ if __name__ == '__main__':
     parser.add_argument('--population', type=int,
                         default=30, help='population')
     parser.add_argument('--generation', type=int,
-                        default=100, help='generation')
+                        default=10, help='generation')
     parser.add_argument('--train_init', type=int,
                         default=117600, help='initial training points')
     parser.add_argument('--valid_num', type=int,
@@ -171,13 +179,11 @@ if __name__ == '__main__':
     # output= []
 
     model_index = FLAGS.model_index.split(',')
-
     for index in model_index:
         print('model: ', index)
         model_params['model_num'] = int(index)
         G = Genetic(FLAGS.population, FLAGS.generation, model_params)
         best_ind, valid_err, test_error = G.search()
-
         file_name = 'output_model_%s_pop_%d_gen_%d.txt' % (
             index, FLAGS.population, FLAGS.generation)
         output_path = os.path.join(FLAGS.checkpointDir, file_name)
