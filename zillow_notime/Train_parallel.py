@@ -16,7 +16,7 @@ class Train(object):
         """
         Initialize a RNN with given parameters
         """
-        self.MAX_EPOCH = model_params['max_epoch']
+        self.MAX_EPOCH = model_params['max_step']
         """
         parameters for networks
         """
@@ -114,7 +114,7 @@ class Train(object):
             return model
 
     def parallel_model(self, model):
-        parallel_model = multi_gpu_model(model, gpus=2)
+        parallel_model = multi_gpu_model(model, gpus=8)
         return parallel_model
 
     def cus_loss(self, y_true, y_pred):
@@ -125,13 +125,13 @@ class Train(object):
     def dataset(self):
         parser = argparse.ArgumentParser()
 
-        # parser.add_argument('--buckets', type=str,
-                            # default='', help='input data path')
+        parser.add_argument('--buckets', type=str,
+                            default='Data', help='input data path')
 
-        # FLAGS, _ = parser.parse_known_args()
-        # train_file_path = os.path.join(FLAGS.buckets, "zillow-model-data-original")
+        FLAGS, _ = parser.parse_known_args()
+        train_file_path = os.path.join(FLAGS.buckets, "zillow-model-data-original")
 
-        train_file_path = "data/zillow-model-data-original"
+        #train_file_path = "data/zillow-model-data-original"
 
         with tf.gfile.Open(train_file_path, 'rb') as f:
             raw_data = f.read()
