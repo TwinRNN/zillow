@@ -75,7 +75,7 @@ class Train(object):
         model2.compile(loss=self.cus_loss, optimizer=optimizer)
 
         model2.fit(X_train, Y_train, epochs=self.MAX_TRAINING_STEP, batch_size=self.batch_size,
-                   callbacks=[callback, ], validation_data=(X_val, Y_val))
+                   callbacks=[callback, ], validation_data=(X_val, Y_val), shuffle=False)
 
         valid_error = history.losses[-1]
         if valid_error < self.best_valid_error_global:
@@ -106,9 +106,9 @@ class Train(object):
             #add dropout layer
             house_input = Input(shape=(None, None, self.feature_size), dtype='float32')
             house_middle = LSTM(self.state_size, return_sequences=True, activation=self.activation_f,
-                                kernel_initializer=self.initializer)(house_input)
+                                kernel_initializer=self.initializer, dropout=self.keep)(house_input)
             house_output = LSTM(self.state_size, return_sequences=True, activation=self.activation_f,
-                                kernel_initializer=self.initializer)(house_middle)
+                                kernel_initializer=self.initializer, dropout=self.keep)(house_middle)
             finale_output = Dense(1)(house_output)
             model = Model(inputs=house_input, outputs=finale_output)
             return model
