@@ -17,14 +17,14 @@ class Dataset(object):
 
         # 配置训练数据的地址
         parser.add_argument('--buckets', type=str,
-                            default='', help='input data path')
+                            default='Data', help='input data path')
         # 配置模型保存地址
         # parser.add_argument('--output_dir', type=str,
         # default='', help='output model path')
 
         FLAGS, _ = parser.parse_known_args()
-        train_file_path = os.path.join(FLAGS.buckets, "zillow-model-data-hist")
-        train_file_path2 = os.path.join(FLAGS.buckets, "model-time")
+        train_file_path = os.path.join(FLAGS.buckets, "zillow-model-data-original")
+        train_file_path2 = os.path.join(FLAGS.buckets, "model_time_day")
         # output_file = os.path.join(FLAGS.output_dir,"output.txt")
         # print("XXXXXXX:", FLAGS.data_dir, train_file_path)
 
@@ -63,6 +63,7 @@ class Dataset(object):
         self.move_tweeter_re = MAP - self.time_series_step - delay_tweeter_re
         self.epochs = 0
         self.cursor = 0
+        self.size = 0
 
     def split(self, forward_step, train_num, valid_num, test_num, model_num=0):
 
@@ -222,11 +223,11 @@ class Dataset(object):
                 Y_train = tr_logerror
                 macro_train = macro_features
             else:
-                np.concatenate(X_train, train, axis=0)
-                np.concatenate(Y_train, tr_logerror, axis=0)
-                np.concatenate(macro_train, macro_features, axis=0)
-                np.concatenate(macro_train, macro_features, axis=0)
-                np.concatenate(macro_train, macro_features, axis=0)
+                np.concatenate((X_train, train), axis=0)
+                np.concatenate((Y_train, tr_logerror), axis=0)
+                np.concatenate((macro_train, macro_features), axis=0)
+                np.concatenate((macro_train, macro_features), axis=0)
+                np.concatenate((macro_train, macro_features), axis=0)
 
 
         valid, valid_logerror, macro_valid = self.valid_data()

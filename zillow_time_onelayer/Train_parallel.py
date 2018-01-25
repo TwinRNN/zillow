@@ -56,22 +56,27 @@ class BasicTrain(object):
     def build(self):
         better_param = False
         dataset = dataset_zillow.Dataset(self.batch_size, self.seq_len, self.time_series_params)
+        dataset.split(self.forward,self.train_init,self.valid_num,self.test_num,self.model_num)
         X_train, Y_train, macro_train_days, X_valid, Y_valid, macro_valid_days, X_test, Y_test, macro_test_days = dataset.gatherData()
         feature_size = dataset.feature_size()
+
         self.event_feature_size = feature_size['event']
         self.timeseries_feature_size = feature_size['time']
 
+        print(macro_train_days.shape)
         opt = {"0": SGD(lr=self.learning_rate, decay=self.decay_rate),
                "1": RMSprop(lr=self.learning_rate, decay=self.decay_rate),
                "2": Adadelta(lr=self.learning_rate, decay=self.decay_rate),
                "3": Adam(lr=self.learning_rate, decay=self.decay_rate)}
         optimizer = opt["%d" % self.optimizer]
 
-        history = self.LossHistory()
-        callback = [EarlyStopping(monitor=self.cus_loss, patience=10, mode='min'), history]
+
 
         model = self.build_model()
-        model2 = self.parallel_model(model)
+        model2 = model
+        #model2 = self.parallel_model(model)
+        history = self.LossHistory((X_valid,Y_valid),model2)
+        callback = [EarlyStopping(monitor=self.cus_loss, patience=10, mode='min',min_delta=0.002), history]
         model2.compile(loss=self.cus_loss, optimizer=optimizer)
         model2.fit([X_train, macro_train_days], Y_train,
                    validation_data=([X_valid, macro_valid_days], Y_valid),
@@ -93,19 +98,20 @@ class BasicTrain(object):
     def build_model(self):
         with tf.device('/cpu:0'):
             # build house model
-            house_input = Input(shape=(None, None, self.event_feature_size), dtype='float32')
+            house_input = Input(shape=(None, self.event_feature_size), dtype='float32')
             house_middle = LSTM(self.state_size, return_sequences=True, activation=self.activation_f,
                                 kernel_initializer=self.initializer, dropout=self.keep)(house_input)
             house_output = LSTM(self.state_size, return_sequences=True, activation=self.activation_f,
                                 kernel_initializer=self.initializer, dropout=self.keep)(house_middle)
 
             # build time model
-            macro_input_days = Input(shape=(None, None, self.timeseries_feature_size), dtype='float32')
+            macro_input_days = Input(shape=(NNone, self.timeseries_feature_size), dtype='float32')
+            #macro_reshape = Reshape([-1,self.time_series_step,self.timeseries_feature_size])(macro_input_days)
             macro_middle_days = LSTM(self.state_size, return_sequences=True, activation=self.activation_f,
-                                     kernel_initializer=self.initializer, dropout=self.keep)(macro_input_days)
+                                     kernel_initializer=self.initializer, dropout=self.keep)(macro_reshape)
             macro_output_days = LSTM(self.state_size, return_sequences=False, activation=self.activation_f,
                                      kernel_initializer=self.initializer, dropout=self.keep)(macro_middle_days)
-            macro_output_days = Reshape([self.batch_size, self.seq_len, self.state_size])(macro_output_days)
+            macro_output_days = Reshape([-1, self.seq_len, self.state_size])(macro_output_days)
 
 
             # concatenate
@@ -124,10 +130,13 @@ class BasicTrain(object):
         return loss
 
     class LossHistory(Callback):
+        def __init__(self,validation_data,model):
+            self.val = validation_data
+            self.model2 = model
         def on_train_begin(self, logs={}):
             self.losses = []
 
-        def on_batch_end(self, batch, logs={}):
-            self.losses.append(logs.get('val_loss'))
-
-
+        def on_epoch_end(self, batch, logs={}):
+            X_val,Y_val = self.val
+            loss=self.model2.evaluate(X_val,Y_val,verbose=0)
+            self.losses.append(loss)

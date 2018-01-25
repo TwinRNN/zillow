@@ -23,7 +23,7 @@ class Train(object):
         self.network_params = network_params
         self.state_size = network_params['state_size']
         self.learning_rate = network_params['lr']
-        self.keep = network_params['pkeep']
+        self.keep = 1.0-network_params['pkeep']
         self.optimizer = network_params['optimizer']
         self.decay_rate = network_params['dr']
         self.activation_f = network_params['activation_f']
