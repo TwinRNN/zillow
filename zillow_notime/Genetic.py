@@ -100,7 +100,7 @@ class Genetic(object):
         LR = list(np.logspace(-3, -6, 16))
         DR = [0.99, 0.98, 0.97, 0.96]
         PKEEP = [0.9, 0.8, 0.7, 0.6]
-        ACTIVATION = [tf.nn.relu, tf.nn.tanh, tf.nn.sigmoid, tf.nn.softsign]
+        ACTIVATION = ["relu", "tanh", "sigmoid", "softsign"]
         #INIT = [tf.truncated_normal_initializer(stddev=0.01), tf.random_uniform_initializer(), tf.zeros_initializer(),
         #        tf.orthogonal_initializer()]
         INIT = [zeros(),TruncatedNormal(),Orthogonal(),RandomUniform()]
@@ -131,8 +131,8 @@ if __name__ == '__main__':
                         default='0', help='model index')
     parser.add_argument('--forward', type=int,
                         default=3600, help='number of steps for moving forward')
-    parser.add_argument('--max_epoch', type=int,
-                        default=1000, help='max number of epochs')
+    parser.add_argument('--max_step', type=int,
+                        default=1000, help='max number of steps')
     parser.add_argument('--population', type=int,
                         default=30, help='population')
     parser.add_argument('--generation', type=int,
@@ -150,7 +150,7 @@ if __name__ == '__main__':
     FLAGS, _ = parser.parse_known_args()
 
     model_params = {'train_init': FLAGS.train_init, 'model_num': FLAGS.model_index, 'valid_num': FLAGS.valid_num,
-                    'test_num': FLAGS.test_num, 'max_epoch': FLAGS.max_epoch, 'forward': FLAGS.forward}
+                    'test_num': FLAGS.test_num, 'max_step': FLAGS.max_step, 'forward': FLAGS.forward}
 
     # best_params = []
     # errors = []

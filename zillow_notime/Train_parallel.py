@@ -109,7 +109,7 @@ class Train(object):
                                 kernel_initializer=self.initializer, dropout=self.keep)(house_input)
             house_output = LSTM(self.state_size, return_sequences=True, activation=self.activation_f,
                                 kernel_initializer=self.initializer, dropout=self.keep)(house_middle)
-            finale_output = Dense(1)(house_output)
+            finale_output = Dense(1,activation=self.activation_f)(house_output)
             model = Model(inputs=house_input, outputs=finale_output)
             return model
 
