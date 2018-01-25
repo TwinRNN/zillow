@@ -1,8 +1,8 @@
 from keras.callbacks import EarlyStopping, Callback
-from keras.layers import Dense, LSTMCell, RNN, StackedRNNCells
-from keras.models import Sequential
+from keras.layers import Dense, LSTM, RNN, StackedRNNCells, Input
+from keras.models import Model
 from keras.utils import multi_gpu_model
-from keras.optimers import SGD,RMSProp,AdaDelta,Adam
+from keras.optimizers import SGD, RMSprop, Adadelta, Adam
 import numpy as np
 import tensorflow as tf
 import pickle
@@ -41,7 +41,7 @@ class Train(object):
         self.forward = model_params['forward']
         print ('-------------------------------------------------------------')
         print('network_params: ', network_params)
-        print('model_paramas: ', model_params)
+        print('model_params: ', model_params)
         # to record the best error for
         self.best_valid_error_global = best_valid_error
         self.test_error_global = test_error
@@ -63,20 +63,21 @@ class Train(object):
         # print(X_train.shape)
         # print(Y_train.shape)
         model = self.build_model()
+
         model2 = self.parallel_model(model)
         #build the map of opt
-        opt = {"1":SGD(lr=self.learning_rate,decay=self.decay_rate),
-                "2":RMSProp(lr=self.learning_rate,decay=self.decay_rate)
-                "3":AdaDelta(lr=self.learning_rate,decay=self.decay_rate)
-                "4":Adam(lr=self.learning_rate,decay=self.decay_rate)}
-        optimizer = opt["%d"%self.optimizer]
+        opt = {"1": SGD(lr=self.learning_rate, decay=self.decay_rate),
+                "2": RMSprop(lr=self.learning_rate, decay=self.decay_rate),
+                "3": Adadelta(lr=self.learning_rate, decay=self.decay_rate),
+                "4": Adam(lr=self.learning_rate, decay=self.decay_rate)}
+        optimizer = opt["%d" % self.optimizer]
 
         model2.compile(loss=self.cus_loss, optimizer=optimizer)
 
         model2.fit(X_train, Y_train, epochs=self.MAX_TRAINING_STEP, batch_size=self.batch_size,
                    callbacks=[callback, ], validation_data=(X_val, Y_val))
 
-        valid_error = history[-1]
+        valid_error = history.losses[-1]
         if valid_error < self.best_valid_error_global:
             better_param = True
             self.best_valid_error_global = valid_error
@@ -89,8 +90,6 @@ class Train(object):
         print 'best_valid_error_global:', self.best_valid_error_global
         print 'current_test_error_global: ', self.test_error_global
         return valid_error, self.best_valid_error_global, self.test_error_global, better_param
-
-
 
     def build_model(self):
         with tf.device('/cpu:0'):
@@ -105,12 +104,14 @@ class Train(object):
             #add the activation Function
             #add initializer
             #add dropout layer
-        	house_input = Input(shape=(None,None,33),dtype='float32')
-    		house_middle = LSTM(units,return_sequences = True,activation=self.activation_f,kernel_initializer=self.initializer)(house_input)
-    		house_output = LSTM(units,return_sequences = True,activation=self.activation_f,kernel_initializer=self.initializer)(house_middle)
+            house_input = Input(shape=(None, None, self.feature_size), dtype='float32')
+            house_middle = LSTM(self.state_size, return_sequences=True, activation=self.activation_f,
+                                kernel_initializer=self.initializer)(house_input)
+            house_output = LSTM(self.state_size, return_sequences=True, activation=self.activation_f,
+                                kernel_initializer=self.initializer)(house_middle)
             finale_output = Dense(1)(house_output)
-            model =Model(inputs=house_input,outputs=finale_output)
-        return model
+            model = Model(inputs=house_input, outputs=finale_output)
+            return model
 
     def parallel_model(self, model):
         parallel_model = multi_gpu_model(model, gpus=2)
@@ -121,20 +122,11 @@ class Train(object):
         loss = K.mean(price_error)
         return loss
 
-    class LossHistory(Callback):
-        def on_train_begin(self, logs={}):
-            self.losses = []
-
-        def on_batch_end(self, batch, logs={}):
-            self.losses.append(logs.get('val_loss'))
-
     def dataset(self):
         parser = argparse.ArgumentParser()
 
-        # 配置训练数据的地址
         # parser.add_argument('--buckets', type=str,
                             # default='', help='input data path')
-
 
         # FLAGS, _ = parser.parse_known_args()
         # train_file_path = os.path.join(FLAGS.buckets, "zillow-model-data-original")
@@ -161,3 +153,11 @@ class Train(object):
         self.test_logerror = logerror_df[valid_end: test_end].values
 
         self.feature_size = train_df.shape[1]
+
+    class LossHistory(Callback):
+
+        def on_train_begin(self, logs={}):
+            self.losses = []
+
+        def on_batch_end(self, batch, logs={}):
+            self.losses.append(logs.get('val_loss'))
