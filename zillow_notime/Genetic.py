@@ -7,6 +7,7 @@ from scipy.stats import bernoulli
 from bitstring import BitArray
 from deap import base, creator, tools, algorithms
 import numpy as np
+from keras.initializers import zeros,TruncatedNormal,Orthogonal,RandomUniform
 
 FLAGS = None
 
@@ -100,8 +101,9 @@ class Genetic(object):
         DR = [0.99, 0.98, 0.97, 0.96]
         PKEEP = [0.9, 0.8, 0.7, 0.6]
         ACTIVATION = [tf.nn.relu, tf.nn.tanh, tf.nn.sigmoid, tf.nn.softsign]
-        INIT = [tf.truncated_normal_initializer(stddev=0.01), tf.random_uniform_initializer(), tf.zeros_initializer(),
-                tf.orthogonal_initializer()]
+        #INIT = [tf.truncated_normal_initializer(stddev=0.01), tf.random_uniform_initializer(), tf.zeros_initializer(),
+        #        tf.orthogonal_initializer()]
+        INIT = [zeros(),TruncatedNormal(),Orthogonal(),RandomUniform()]
         net_name = ['lr', 'batch_size', 'seq_len', 'state_size', 'dr', 'pkeep', 'optimizer', 'activation_f', 'initializer']
         network_params = {}
         network_params['lr'] = LR[BitArray(params[0: NUM_NET_1 * 4]).uint]
