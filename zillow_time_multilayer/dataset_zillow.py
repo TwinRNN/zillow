@@ -263,11 +263,11 @@ class Dataset(object):
                 macro_train_months = macro_features_months
                 macro_train_weeks = macro_features_weeks
             else:
-                np.concatenate(X_train, train, axis=0)
-                np.concatenate(Y_train, tr_logerror, axis=0)
-                np.concatenate(macro_train_days, macro_features_days, axis=0)
-                np.concatenate(macro_train_weeks, macro_features_weeks, axis=0)
-                np.concatenate(macro_train_months, macro_features_months, axis=0)
+                np.concatenate((X_train, train), axis=0)
+                np.concatenate((Y_train, tr_logerror), axis=0)
+                np.concatenate((macro_train_days, macro_features_days), axis=0)
+                np.concatenate((macro_train_weeks, macro_features_weeks), axis=0)
+                np.concatenate((macro_train_months, macro_features_months), axis=0)
 
         valid, valid_logerror, macro_valid_days, macro_valid_weeks, macro_valid_months = self.valid_data()
 

@@ -1,6 +1,6 @@
 from keras.callbacks import EarlyStopping, Callback
 from keras.layers import Dense, Input, LSTM, concatenate
-from keras.layers.core import Reshape
+from keras.layers.core import Reshape,Lambda
 from keras.models import Model
 from keras.utils import multi_gpu_model
 import dataset_zillow
@@ -25,7 +25,7 @@ class BasicTrain(object):
         self.seq_len = network_params['seq_len']
         self.state_size = network_params['state_size']
         self.learning_rate = network_params['lr']
-        self.keep = network_params['pkeep']
+        self.keep = 1.0-network_params['pkeep']
         self.optimizer = network_params['optimizer']
         self.decay_rate = network_params['dr']
         self.activation_f = network_params['activation_f']
@@ -42,7 +42,9 @@ class BasicTrain(object):
         parameters for timeseries data
         """
         self.time_series_params = timeseries_params
-        self.time_series_step = timeseries_params['time_series_step']
+        self.time_series_step_days = timeseries_params['time_series_step_days']
+        self.time_series_step_weeks = timeseries_params['time_series_step_weeks']
+        self.time_series_step_months = timeseries_params['time_series_step_months']
 
         print('-------------------------------------------------------------')
         print('network_params: ', network_params)
@@ -56,6 +58,7 @@ class BasicTrain(object):
     def build(self):
         better_param = False
         dataset = dataset_zillow.Dataset(self.batch_size, self.seq_len, self.time_series_params)
+        dataset.split(self.forward,self.train_init,self.valid_num,self.test_num,self.model_num)
         X_train, Y_train, macro_train_days, macro_train_weeks, macro_train_months, \
         X_valid, Y_valid, macro_valid_days, macro_valid_weeks, macro_valid_months,\
         X_test, Y_test, macro_test_days, macro_test_weeks, macro_test_months,\
@@ -69,16 +72,25 @@ class BasicTrain(object):
                "2": Adadelta(lr=self.learning_rate, decay=self.decay_rate),
                "3": Adam(lr=self.learning_rate, decay=self.decay_rate)}
         optimizer = opt["%d" % self.optimizer]
-
+        X_valid=np.reshape(X_valid,(-1,self.seq_len,self.event_feature_size))
+        Y_valid = np.reshape(Y_valid,(-1,self.seq_len,1))
+        X_test=np.reshape(X_test,(-1,self.seq_len,self.event_feature_size))
+        Y_test = np.reshape(Y_test,(-1,self.seq_len,1))
+        macro_valid_days = np.reshape(macro_valid_days,(-1,self.seq_len,self.time_series_step_days,self.timeseries_feature_size))
+        macro_test_days = np.reshape(macro_test_days,(-1,self.seq_len,self.time_series_step_days,self.timeseries_feature_size))
+        macro_valid_weeks=np.reshape(macro_valid_weeks,(-1,self.seq_len,self.time_series_step_weeks,self.timeseries_feature_size))
+        macro_test_weeks=np.reshape(macro_test_weeks,(-1,self.seq_len,self.time_series_step_weeks,self.timeseries_feature_size))
+        macro_valid_months=np.reshape(macro_valid_months,(-1,self.seq_len,self.time_series_step_months,self.timeseries_feature_size))
+        macro_test_months=np.reshape(macro_test_months,(-1,self.seq_len,self.time_series_step_months,self.timeseries_feature_size))
         history = self.LossHistory()
-        callback = [EarlyStopping(monitor=self.cus_loss, patience=10, mode='min'), history]
+        callback = [EarlyStopping(monitor='val_loss', patience=10, mode='min',min_delta=0.002), history]
 
         model = self.build_model()
-        model2 = self.parallel_model(model)
+        model2 = model#self.parallel_model(model)
         model2.compile(loss=self.cus_loss, optimizer=optimizer)
         model2.fit([X_train, macro_train_days, macro_train_weeks, macro_train_months], Y_train,
                    validation_data=([X_valid, macro_valid_days, macro_valid_weeks, macro_valid_months], Y_valid),
-                   batch_size=self.batch_size, epoch=self.MAX_EPOCH, callbacks=callback, shuffle=False)
+                   batch_size=self.batch_size, epochs=self.MAX_EPOCH, callbacks=callback, shuffle=False)
 
         valid_error = history.losses[-1]
         if valid_error < self.best_valid_error_global:
@@ -96,36 +108,41 @@ class BasicTrain(object):
     def build_model(self):
         with tf.device('/cpu:0'):
             # build house model
-            house_input = Input(shape=(None, None, self.event_feature_size), dtype='float32')
+            # build house model
+            house_input = Input(shape=(self.seq_len, self.event_feature_size), dtype='float32')
             house_middle = LSTM(self.state_size, return_sequences=True, activation=self.activation_f,
                                 kernel_initializer=self.initializer, dropout=self.keep)(house_input)
             house_output = LSTM(self.state_size, return_sequences=True, activation=self.activation_f,
                                 kernel_initializer=self.initializer, dropout=self.keep)(house_middle)
 
             # build time model
-            macro_input_days = Input(shape=(None, None, self.timeseries_feature_size), dtype='float32')
+            macro_input_days = Input(shape=(None, self.time_series_step_days,self.timeseries_feature_size), dtype='float32')
+            macro_reshape_days = Lambda(lambda x: K.reshape(x, (-1, self.time_series_step_days, self.timeseries_feature_size)), name='Reshape1')(macro_input_days)
             macro_middle_days = LSTM(self.state_size, return_sequences=True, activation=self.activation_f,
-                                     kernel_initializer=self.initializer, dropout=self.keep)(macro_input_days)
+                                     kernel_initializer=self.initializer, dropout=self.keep)(macro_reshape_days)
             macro_output_days = LSTM(self.state_size, return_sequences=False, activation=self.activation_f,
                                      kernel_initializer=self.initializer, dropout=self.keep)(macro_middle_days)
-            macro_output_days = Reshape([self.batch_size, self.seq_len, self.state_size])(macro_output_days)
+            macro_output_days = Lambda(lambda x:K.reshape(x,(-1, self.seq_len, self.state_size)))(macro_output_days)
 
-            macro_input_weeks = Input(shape=(None, None, self.timeseries_feature_size), dtype='float32')
+            macro_input_weeks = Input(shape=(None, self.time_series_step_weeks,self.timeseries_feature_size), dtype='float32')
+            macro_reshape_weeks = Lambda(lambda x: K.reshape(x, (-1, self.time_series_step_weeks, self.timeseries_feature_size)), name='Reshape2')(macro_input_weeks)
             macro_middle_weeks = LSTM(self.state_size, return_sequences=True, activation=self.activation_f,
-                                      kernel_initializer=self.initializer, dropout=self.keep)(macro_input_weeks)
+                                     kernel_initializer=self.initializer, dropout=self.keep)(macro_reshape_weeks)
             macro_output_weeks = LSTM(self.state_size, return_sequences=False, activation=self.activation_f,
-                                      kernel_initializer=self.initializer, dropout=self.keep)(macro_middle_weeks)
-            macro_output_weeks = Reshape([self.batch_size, self.seq_len, self.state_size])(macro_output_weeks)
+                                     kernel_initializer=self.initializer, dropout=self.keep)(macro_middle_weeks)
+            macro_output_weeks = Lambda(lambda x:K.reshape(x,(-1, self.seq_len, self.state_size)))(macro_output_weeks)
 
-            macro_input_months = Input(shape=(None, None, self.timeseries_feature_size), dtype='float32')
+            macro_input_months = Input(shape=(None, self.time_series_step_months,self.timeseries_feature_size), dtype='float32')
+            macro_reshape_months = Lambda(lambda x: K.reshape(x, (-1, self.time_series_step_weeks, self.timeseries_feature_size)), name='Reshape3')(macro_input_months)
             macro_middle_months = LSTM(self.state_size, return_sequences=True, activation=self.activation_f,
-                                       kernel_initializer=self.initializer, dropout=self.keep)(macro_input_months)
+                                     kernel_initializer=self.initializer, dropout=self.keep)(macro_reshape_months)
             macro_output_months = LSTM(self.state_size, return_sequences=False, activation=self.activation_f,
-                                       kernel_initializer=self.initializer, dropout=self.keep)(macro_middle_months)
-            macro_output_months = Reshape([self.batch_size, self.seq_len, self.state_size])(macro_output_months)
+                                     kernel_initializer=self.initializer, dropout=self.keep)(macro_middle_months)
+            macro_output_months = Lambda(lambda x:K.reshape(x,(-1, self.seq_len, self.state_size)))(macro_output_months)
+
 
             # concatenate
-            middle_output = concatenate([house_output, macro_output_days, macro_output_weeks, macro_output_months])
+            middle_output = concatenate([house_output, macro_output_days, macro_output_weeks, macro_output_months],axis=2)
             finale_output = Dense(1, activation=self.activation_f)(middle_output)
             model = Model(inputs=[house_input, macro_input_days, macro_input_weeks, macro_input_months], outputs=finale_output)
         return model
@@ -143,7 +160,5 @@ class BasicTrain(object):
         def on_train_begin(self, logs={}):
             self.losses = []
 
-        def on_batch_end(self, batch, logs={}):
+        def on_epoch_end(self, batch, logs={}):
             self.losses.append(logs.get('val_loss'))
-
-

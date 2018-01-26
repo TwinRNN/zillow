@@ -27,7 +27,7 @@ class Genetic(object):
         Delay params: 2^3 -> 3 * 4 * 3
         time_series step: 2^2  -> 2 * 3
         4 + 16 + 36 + 6= 62
-        
+
         """
         GENE_LENGTH = 62
 
@@ -152,7 +152,7 @@ if __name__ == '__main__':
     parser.add_argument('--model_index', type=str,
                         default='0', help='model index')
     parser.add_argument('--forward', type=int,
-                        default=3600, help='number of steps for moving forward')
+                        default=2560, help='number of steps for moving forward')
     parser.add_argument('--max_epoch', type=int,
                         default=1000, help='max number of epochs')
     parser.add_argument('--population', type=int,
@@ -160,10 +160,10 @@ if __name__ == '__main__':
     parser.add_argument('--generation', type=int,
                         default=10, help='generation')
     parser.add_argument('--train_init', type=int,
-                        default=117600, help='initial training points')
+                        default=128000, help='initial training points')
     parser.add_argument('--valid_num', type=int,
-                        default=3600, help='validation points')
-    parser.add_argument('--test_num', type=int, default=3600, help='test points')
+                        default=2560, help='validation points')
+    parser.add_argument('--test_num', type=int, default=2560, help='test points')
     # parser.add_argument('--time_series', type=bool, default=False, help='whether use times series data or not')
     # parser.add_argument('--delay_google', type=int, default=0, help='leading dates of google')
     # parser.add_argument('--delay_tweeter', type=int, default=0, help='leading dates of tweeter')
