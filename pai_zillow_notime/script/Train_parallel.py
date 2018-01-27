@@ -104,15 +104,15 @@ class Train(object):
             Y_test = self.test_logerror.reshape((1, -1, 1))
             y = model2.predict(X_test)
 
-<<<<<<< HEAD
-            acc = np.mean(np.abs(1 - np.exp(Y_test - y)*2.6314527302300394))
+
+            #acc = np.mean(np.abs(1 - np.exp(Y_test - y)*2.6314527302300394))
             #pd.Series(y.reshape([-1])).to_csv("predict.csv")
             #pd.Series(Y_test.reshape([-1])).to_csv("true.csv")
-=======
+
             acc = np.mean(np.abs(1 - np.exp((Y_test - y) * 2.6314527302300394)))
-            pd.Series(y.reshape([-1])).to_csv("predict.csv")
-            pd.Series(Y_test.reshape([-1])).to_csv("true.csv")
->>>>>>> 22ccf2e1dc193657358c25ede1c4db688388be21
+            #pd.Series(y.reshape([-1])).to_csv("predict.csv")
+            #pd.Series(Y_test.reshape([-1])).to_csv("true.csv")
+
             self.test_error_global = acc
         history.loss_plot("epoch",output_path,self.test_error_global,self.network_params)
         print 'best_valid_error_global:', self.best_valid_error_global
