@@ -10,7 +10,8 @@ import pickle
 from keras import backend as K
 import argparse
 import os
-import pandas as pd
+import matplotlib
+matplotlib.use('agg')
 import matplotlib.pyplot as plt
 import sys
 
@@ -73,8 +74,8 @@ class Train(object):
 
         model = self.build_model()
 
-        # model2 = self.parallel_model(model)
-        model2 =model
+        model2 = self.parallel_model(model)
+        #model2 =model
         model2.summary()
         parser = argparse.ArgumentParser()
         parser.add_argument('--checkpointDir', type=str, default='model',
