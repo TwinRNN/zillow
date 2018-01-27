@@ -8,7 +8,7 @@ import tensorflow as tf
 
 class Dataset(object):
 
-    def __init__(self, batch_size, seq_len, time_series_params):
+    def __init__(self, batch_size, seq_len, time_series_params, event_data, time_data):
         # time_series starting on 2014.12.28
         # transation date starting on 2016.1.1
         MAP = 369
@@ -16,36 +16,30 @@ class Dataset(object):
         parser = argparse.ArgumentParser()
 
         # 配置训练数据的地址
-        parser.add_argument('--buckets', type=str,
-                            default='Data', help='input data path')
+        #Nparser.add_argument('--buckets', type=str,
+                            #Ndefault='Data', help='input data path')
         # 配置模型保存地址
         # parser.add_argument('--output_dir', type=str,
         # default='', help='output model path')
 
-        FLAGS, _ = parser.parse_known_args()
-        train_file_path = os.path.join(FLAGS.buckets, "zillow-model-data-original")
-        train_file_path2 = os.path.join(FLAGS.buckets, "model_time_day")
+        # FLAGS, _ = parser.parse_known_args()
+        # train_file_path = os.path.join(FLAGS.buckets, "zillow-model-data-original")
+        # train_file_path2 = os.path.join(FLAGS.buckets, "model_time_day")
         # output_file = os.path.join(FLAGS.output_dir,"output.txt")
         # print("XXXXXXX:", FLAGS.data_dir, train_file_path)
 
-        with tf.gfile.Open(train_file_path, 'rb') as f:
-            raw_data = f.read()
-            data = pickle.loads(raw_data)
-            self.train_df = data['train_df'][: 150000]
-            self.logerror_df = data['logerror_df'][: 150000]
-            self.transactiondate_df = data['transactiondate_df'][: 150000]
-            # print('train_df shape:', self.train_df.shape)
-            # print('logerror_df shape:', self.logerror_df.shape)
-            # print('transactiondate_df shape:', self.transactiondate_df.shape)
+        self.train_df = event_data['train_df'][: 150000]
+        self.logerror_df = event_data['logerror_df'][: 150000]
+        self.transactiondate_df = event_data['transactiondate_df'][: 150000]
+        # print('train_df shape:', self.train_df.shape)
+        # print('logerror_df shape:', self.logerror_df.shape)
+        # print('transactiondate_df shape:', self.transactiondate_df.shape)
 
-        with tf.gfile.Open(train_file_path2, 'rb') as f:
-            raw_data = f.read()
-            data = pickle.loads(raw_data)
-            self.macro = data['macro']
-            self.google = self.macro[:, : 15]
-            self.economy = self.macro[:, 15: 23]
-            self.tweet = self.macro[:, 23: 29]
-            self.tweet_re = self.macro[:, 29: 35]
+        self.macro = time_data['macro']
+        self.google = self.macro[:, : 15]
+        self.economy = self.macro[:, 15: 23]
+        self.tweet = self.macro[:, 23: 29]
+        self.tweet_re = self.macro[:, 29: 35]
 
         self.batch_size = batch_size
         self.seq_len = seq_len

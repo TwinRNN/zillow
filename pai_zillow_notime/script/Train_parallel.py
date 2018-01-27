@@ -24,7 +24,7 @@ class Train(object):
         self.network_params = network_params
         self.state_size = network_params['state_size']
         self.learning_rate = network_params['lr']
-        self.keep = 1.0-network_params['pkeep']
+        self.keep = 1.0 - network_params['pkeep']
         self.optimizer = network_params['optimizer']
         self.decay_rate = network_params['dr']
         self.activation_f = network_params['activation_f']
@@ -47,7 +47,7 @@ class Train(object):
         self.best_valid_error_global = best_valid_error
         self.test_error_global = test_error
 
-        self.dataset(train_df,logerror_df)
+        self.dataset(train_df, logerror_df)
 
     def build(self):
 
@@ -92,7 +92,7 @@ class Train(object):
             Y_test = self.test_logerror.reshape((1, -1, 1))
             y = model2.predict(X_test)
 
-            acc = np.mean(np.abs(1 - np.exp(Y_test - y))*2.6314527302300394)
+            acc = np.mean(np.abs(1 - np.exp((Y_test - y) * 2.6314527302300394)))
             pd.Series(y.reshape([-1])).to_csv("predict.csv")
             pd.Series(Y_test.reshape([-1])).to_csv("true.csv")
             self.test_error_global = acc
@@ -132,7 +132,7 @@ class Train(object):
         loss = K.mean(price_error)
         return loss
 
-    def dataset(self,train_df,logerror_df):
+    def dataset(self, train_df, logerror_df):
 
 
         train_end = self.train_init + self.model_num * self.forward
