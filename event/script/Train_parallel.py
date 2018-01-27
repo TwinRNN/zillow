@@ -73,8 +73,8 @@ class Train(object):
 
         model = self.build_model()
 
-        model2 = model#self.parallel_model(model)
-        # model2 =model
+        # model2 = self.parallel_model(model)
+        model2 =model
         model2.summary()
         parser = argparse.ArgumentParser()
         parser.add_argument('--checkpointDir', type=str, default='model',
@@ -129,7 +129,7 @@ class Train(object):
                                 kernel_initializer=self.initializer, dropout=self.keep)(house_input)
             house_output = LSTM(self.state_size, return_sequences=True, activation=self.activation_f,
                                 kernel_initializer=self.initializer, dropout=self.keep)(house_middle)
-            finale_output = Dense(1,activation=self.activation_f)(house_output)
+            finale_output = Dense(1, activation=self.activation_f)(house_output)
             model = Model(inputs=house_input, outputs=finale_output)
             return model
 
@@ -161,30 +161,32 @@ class Train(object):
     class LossHistory(Callback):
         def on_train_begin(self, logs={}):
             self.val_losses = {"epoch":[]}
-            self.train_losses = {"epoch":[]}
-
+            self.train_losses = {"epoch":[],"batch":[]}
         def on_epoch_end(self, batch, logs={}):
             self.val_losses["epoch"].append(logs.get('val_loss'))
             self.train_losses["epoch"].append(logs.get('loss'))
+        def on_batch_end(self,batch,logs={}):
+            self.train_losses["batch"].append(logs.get('loss'))
+
         def loss_plot(self,loss_type,output_path,acc,network_params):
             iters = range(len(self.train_losses[loss_type]))
-
-            # acc
-            #plt.plot(iters, self.accuracy[loss_type], 'r', label='train acc')
-            # loss
-
+            iters2 = range(len(self.train_losses["batch"]))
+            plt.figure()
+            plt.subplot(2,1,1)
             plt.plot(iters, self.train_losses[loss_type], 'g', label='train loss')
             if loss_type == 'epoch':
-                # val_acc
-                #plt.plot(iters, self.val_acc[loss_type], 'b', label='val acc')
-                # val_loss
                 plt.plot(iters, self.val_losses[loss_type], 'k', label='val loss')
             plt.grid(True)
             plt.xlabel(loss_type)
             plt.ylabel('loss')
             plt.legend(loc="upper right")
+            plt.subplot(2,1,2)
+            plt.plot(iters2,self.train_losses["batch"],'r',label='train loss each batch')
+            plt.grid(True)
+            plt.xlabel("batch")
+            plt.ylabel('loss')
+            plt.legend(loc='upper right')
             plt.savefig("{0}/{1}_{2}.png".format(output_path,acc,network_params))
-
 
             '''
             X_val,Y_val = self.val
