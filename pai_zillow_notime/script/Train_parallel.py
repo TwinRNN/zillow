@@ -1,3 +1,4 @@
+#--coding:utf-8--
 from keras.callbacks import EarlyStopping, Callback
 from keras.layers import Dense, LSTM, Input
 from keras.models import Model
@@ -10,6 +11,11 @@ from keras import backend as K
 import argparse
 import os
 import pandas as pd
+import matplotlib.pyplot as plt
+import sys
+
+reload(sys)
+sys.setdefaultencoding('utf8')
 
 class Train(object):
 
@@ -67,10 +73,16 @@ class Train(object):
 
         model = self.build_model()
 
-        model2 = self.parallel_model(model)
+        model2 = model#self.parallel_model(model)
         # model2 =model
         model2.summary()
+        parser = argparse.ArgumentParser()
+        parser.add_argument('--checkpointDir', type=str, default='model',
+                            help='output model path')
+        FLAGS, _ = parser.parse_known_args()
+        output_path = os.path.join(FLAGS.checkpointDir)
         history = self.LossHistory()
+
         callback = [EarlyStopping(monitor='val_loss', patience=5, mode='min',min_delta=0.0002), history]
         #build the map of opt
         opt = {"0": SGD(lr=self.learning_rate, decay=self.decay_rate),
@@ -82,9 +94,9 @@ class Train(object):
         model2.compile(loss="mse", optimizer=optimizer)
 
         model2.fit(X_train, Y_train, epochs=self.MAX_EPOCH, batch_size=self.batch_size*2,
-                   callbacks=callback, validation_data=(X_val, Y_val), shuffle=False)
+                   callbacks=callback, validation_data=(X_val, Y_val), shuffle=False,verbose=2)
 
-        valid_error = history.losses[-1]
+        valid_error = history.val_losses["epoch"][-1]
         if valid_error < self.best_valid_error_global:
             better_param = True
             self.best_valid_error_global = valid_error
@@ -92,11 +104,11 @@ class Train(object):
             Y_test = self.test_logerror.reshape((1, -1, 1))
             y = model2.predict(X_test)
 
-            acc = np.mean(np.abs(1 - np.exp(Y_test - y))*2.6314527302300394)
-            pd.Series(y.reshape([-1])).to_csv("predict.csv")
-            pd.Series(Y_test.reshape([-1])).to_csv("true.csv")
+            acc = np.mean(np.abs(1 - np.exp(Y_test - y)*2.6314527302300394))
+            #pd.Series(y.reshape([-1])).to_csv("predict.csv")
+            #pd.Series(Y_test.reshape([-1])).to_csv("true.csv")
             self.test_error_global = acc
-
+        history.loss_plot("epoch",output_path,self.test_error_global,self.network_params)
         print 'best_valid_error_global:', self.best_valid_error_global
         print 'current_test_error_global: ', self.test_error_global
         return valid_error, self.best_valid_error_global, self.test_error_global, better_param
@@ -151,10 +163,32 @@ class Train(object):
 
     class LossHistory(Callback):
         def on_train_begin(self, logs={}):
-            self.losses = []
+            self.val_losses = {"epoch":[]}
+            self.train_losses = {"epoch":[]}
 
         def on_epoch_end(self, batch, logs={}):
-            self.losses.append(logs.get('val_loss'))
+            self.val_losses["epoch"].append(logs.get('val_loss'))
+            self.train_losses["epoch"].append(logs.get('loss'))
+        def loss_plot(self,loss_type,output_path,acc,network_params):
+            iters = range(len(self.train_losses[loss_type]))
+
+            # acc
+            #plt.plot(iters, self.accuracy[loss_type], 'r', label='train acc')
+            # loss
+
+            plt.plot(iters, self.train_losses[loss_type], 'g', label='train loss')
+            if loss_type == 'epoch':
+                # val_acc
+                #plt.plot(iters, self.val_acc[loss_type], 'b', label='val acc')
+                # val_loss
+                plt.plot(iters, self.val_losses[loss_type], 'k', label='val loss')
+            plt.grid(True)
+            plt.xlabel(loss_type)
+            plt.ylabel('loss')
+            plt.legend(loc="upper right")
+            plt.savefig("{0}/{1}_{2}.png".format(output_path,acc,network_params))
+
+
             '''
             X_val,Y_val = self.val
             loss=self.model2.evaluate(X_val,Y_val,verbose=0)
