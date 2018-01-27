@@ -1,6 +1,6 @@
 from keras.callbacks import EarlyStopping, Callback
 from keras.layers import Dense, Input, LSTM, concatenate
-from keras.layers.core import Reshape,Lambda
+from keras.layers.core import Lambda
 from keras.models import Model
 from keras.utils import multi_gpu_model
 import dataset_zillow
@@ -25,7 +25,7 @@ class BasicTrain(object):
         self.seq_len = network_params['seq_len']
         self.state_size = network_params['state_size']
         self.learning_rate = network_params['lr']
-        self.keep = 1.0-network_params['pkeep']
+        self.keep = 1.0 - network_params['pkeep']
         self.optimizer = network_params['optimizer']
         self.decay_rate = network_params['dr']
         self.activation_f = network_params['activation_f']
@@ -53,47 +53,46 @@ class BasicTrain(object):
         self.best_valid_error_global = best_valid_error
         self.test_error_global = test_error
 
-    def build(self):
+    def build(self, event_data, time_data):
         better_param = False
-        dataset = dataset_zillow.Dataset(self.batch_size, self.seq_len, self.time_series_params)
-        dataset.split(self.forward,self.train_init,self.valid_num,self.test_num,self.model_num)
-        X_train, Y_train, macro_train_days, X_valid, Y_valid, macro_valid_days, X_test, Y_test, macro_test_days = dataset.gatherData()
+        dataset = dataset_zillow.Dataset(self.batch_size, self.seq_len, self.time_series_params, event_data, time_data)
+        dataset.split(self.forward, self.train_init, self.valid_num, self.test_num, self.model_num)
+        X_train, Y_train, macro_train_days, X_valid, Y_valid, macro_valid_days, X_test, Y_test, macro_test_days \
+            = dataset.gatherData()
         feature_size = dataset.feature_size()
-
 
         self.event_feature_size = feature_size['event']
         self.timeseries_feature_size = feature_size['time']
-        X_valid=np.reshape(X_valid,(-1,self.seq_len,self.event_feature_size))
-        Y_valid = np.reshape(Y_valid,(-1,self.seq_len,1))
-        X_test=np.reshape(X_test,(-1,self.seq_len,self.event_feature_size))
-        Y_test = np.reshape(Y_test,(-1,self.seq_len,1))
-        macro_valid_days = np.reshape(macro_valid_days,(-1,self.seq_len,self.time_series_step,self.timeseries_feature_size))
-        macro_test_days = np.reshape(macro_test_days,(-1,self.seq_len,self.time_series_step,self.timeseries_feature_size))
-        #print(macro_train_days.shape)
+
+        X_valid = np.reshape(X_valid, (-1, self.seq_len, self.event_feature_size))
+        Y_valid = np.reshape(Y_valid, (-1, self.seq_len, 1))
+        X_test = np.reshape(X_test, (-1, self.seq_len, self.event_feature_size))
+        Y_test = np.reshape(Y_test, (-1, self.seq_len, 1))
+        macro_valid_days = np.reshape(macro_valid_days, (-1, self.seq_len, self.time_series_step, self.timeseries_feature_size))
+        macro_test_days = np.reshape(macro_test_days, (-1, self.seq_len, self.time_series_step, self.timeseries_feature_size))
+
         opt = {"0": SGD(lr=self.learning_rate, decay=self.decay_rate),
                "1": RMSprop(lr=self.learning_rate, decay=self.decay_rate),
                "2": Adadelta(lr=self.learning_rate, decay=self.decay_rate),
                "3": Adam(lr=self.learning_rate, decay=self.decay_rate)}
         optimizer = opt["%d" % self.optimizer]
 
-
-
         model = self.build_model()
         model2 = model
         #model2 = self.parallel_model(model)
         history = self.LossHistory()
-        callback = [EarlyStopping(monitor='val_loss', patience=5, mode='min',min_delta=0.002), history]
-        model2.compile(loss=self.cus_loss, optimizer=optimizer)
+        callback = [EarlyStopping(monitor='val_loss', patience=5, mode='min', min_delta=0.0002), history]
+        model2.compile(loss="mse", optimizer=optimizer)
         model2.fit([X_train, macro_train_days], Y_train,
                    validation_data=([X_valid, macro_valid_days], Y_valid),
-                   batch_size=self.batch_size, epochs=self.MAX_EPOCH, callbacks=callback, shuffle=False)
+                   batch_size=self.batch_size, epochs=self.MAX_EPOCH, callbacks=callback, shuffle=False, verbose=2)
 
         valid_error = history.losses[-1]
         if valid_error < self.best_valid_error_global:
             better_param = True
             self.best_valid_error_global = valid_error
             y = model2.predict([X_test, macro_test_days])
-            acc = np.mean(np.abs(1 - np.exp(Y_test - y)))
+            acc = np.mean(np.abs(1 - np.exp((Y_test - y) * 2.6314527302300394)))
             self.test_error_global = acc
 
         print 'best_valid_error_global:', self.best_valid_error_global
@@ -111,17 +110,17 @@ class BasicTrain(object):
                                 kernel_initializer=self.initializer, dropout=self.keep)(house_middle)
 
             # build time model
-            macro_input_days = Input(shape=(None, self.time_series_step,self.timeseries_feature_size), dtype='float32')
-            macro_reshape = Lambda(lambda x: K.reshape(x, (-1, self.time_series_step, self.timeseries_feature_size)), name='Reshape')(macro_input_days)
+            macro_input_days = Input(shape=(None, self.time_series_step, self.timeseries_feature_size), dtype='float32')
+            macro_reshape = Lambda(lambda x: K.reshape(x, (-1, self.time_series_step, self.timeseries_feature_size)),
+                                   name='Reshape')(macro_input_days)
             macro_middle_days = LSTM(self.state_size, return_sequences=True, activation=self.activation_f,
                                      kernel_initializer=self.initializer, dropout=self.keep)(macro_reshape)
             macro_output_days = LSTM(self.state_size, return_sequences=False, activation=self.activation_f,
                                      kernel_initializer=self.initializer, dropout=self.keep)(macro_middle_days)
-            macro_output_days = Lambda(lambda x:K.reshape(x,(-1, self.seq_len, self.state_size)))(macro_output_days)
-
+            macro_output_days = Lambda(lambda x: K.reshape(x, (-1, self.seq_len, self.state_size)))(macro_output_days)
 
             # concatenate
-            middle_output = concatenate([house_output, macro_output_days],axis=2)
+            middle_output = concatenate([house_output, macro_output_days], axis=2)
             finale_output = Dense(1, activation=self.activation_f)(middle_output)
             model = Model(inputs=[house_input, macro_input_days], outputs=finale_output)
         return model
