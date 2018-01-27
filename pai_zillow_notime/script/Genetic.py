@@ -8,19 +8,21 @@ from bitstring import BitArray
 from deap import base, creator, tools, algorithms
 import numpy as np
 from keras.initializers import zeros,TruncatedNormal,Orthogonal,RandomUniform
-
+import pickle
 FLAGS = None
 
 
 class Genetic(object):
 
-    def __init__(self, population, generation, model_param):
+    def __init__(self, population, generation, model_param,train_df,logerror_df):
         """
         :param count:  count (int): Number of networks to generate, aka the size of the population
         """
         self.population = population
         self.generation = generation
         self.model_param = model_param
+        self.train_df = train_df
+        self.logerror_df = logerror_df
 
         """
         LR: 2^4  -> 4
@@ -63,7 +65,7 @@ class Genetic(object):
         network_params = self.decoder(individual)
 
         net = Train_parallel.Train(network_params, self.model_param,
-                                   self.best_valid_error_global, self.test_error)
+                                   self.best_valid_error_global, self.test_error,self.train_df,self.logerror_df)
 
         best_local, best_global, test_error, better_param = net.build()
         self.best_valid_error_global = best_global
@@ -156,11 +158,26 @@ if __name__ == '__main__':
     # errors = []
     # output= []
 
+
+    parser.add_argument('--buckets', type=str,
+                        default='Data', help='input data path')
+
+    FLAGS, _ = parser.parse_known_args()
+    train_file_path = os.path.join(FLAGS.buckets, "zillow-model-data-original")
+
+    #train_file_path = "data/zillow-model-data-original"
+
+    with tf.gfile.Open(train_file_path, 'rb') as f:
+        raw_data = f.read()
+        data = pickle.loads(raw_data)
+
+    train_df = data['train_df']
+    logerror_df = data['logerror_df']
     model_index = FLAGS.model_index.split(',')
     for index in model_index:
         print('model: ', index)
         model_params['model_num'] = int(index)
-        G = Genetic(FLAGS.population, FLAGS.generation, model_params)
+        G = Genetic(FLAGS.population, FLAGS.generation, model_params,train_df,logerror_df)
         best_ind, valid_err, test_error = G.search()
         file_name = 'output_model_%s_pop_%d_gen_%d.txt' % (
             index, FLAGS.population, FLAGS.generation)

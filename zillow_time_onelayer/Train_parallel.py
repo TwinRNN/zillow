@@ -77,7 +77,7 @@ class BasicTrain(object):
         #model2 = self.parallel_model(model)
         history = self.LossHistory((X_valid,Y_valid),model2)
         callback = [EarlyStopping(monitor=self.cus_loss, patience=10, mode='min',min_delta=0.002), history]
-        model2.compile(loss=self.cus_loss, optimizer=optimizer)
+        model2.compile(loss=,'mse' optimizer=optimizer)
         model2.fit([X_train, macro_train_days], Y_train,
                    validation_data=([X_valid, macro_valid_days], Y_valid),
                    batch_size=self.batch_size, epoch=self.MAX_EPOCH, callbacks=callback, shuffle=False)

@@ -9,10 +9,11 @@ import pickle
 from keras import backend as K
 import argparse
 import os
+import pandas as pd
 
 class Train(object):
 
-    def __init__(self, network_params, model_params, best_valid_error, test_error):
+    def __init__(self, network_params, model_params, best_valid_error, test_error,train_df,logerror_df):
         """
         Initialize a RNN with given parameters
         """
@@ -45,7 +46,8 @@ class Train(object):
         # to record the best error for
         self.best_valid_error_global = best_valid_error
         self.test_error_global = test_error
-        self.dataset()
+
+        self.dataset(train_df,logerror_df)
 
     def build(self):
 
@@ -79,7 +81,7 @@ class Train(object):
 
         model2.compile(loss="mse", optimizer=optimizer)
 
-        model2.fit(X_train, Y_train, epochs=self.MAX_EPOCH, batch_size=self.batch_size,
+        model2.fit(X_train, Y_train, epochs=self.MAX_EPOCH, batch_size=self.batch_size*2,
                    callbacks=callback, validation_data=(X_val, Y_val), shuffle=False)
 
         valid_error = history.losses[-1]
@@ -89,7 +91,10 @@ class Train(object):
             X_test = self.test.reshape(1, -1, self.feature_size)
             Y_test = self.test_logerror.reshape((1, -1, 1))
             y = model2.predict(X_test)
-            acc = np.mean(np.abs(1 - np.exp(Y_test - y)))
+
+            acc = np.mean(np.abs(1 - np.exp(Y_test - y))*2.6314527302300394)
+            pd.Series(y.reshape([-1])).to_csv("predict.csv")
+            pd.Series(Y_test.reshape([-1])).to_csv("true.csv")
             self.test_error_global = acc
 
         print 'best_valid_error_global:', self.best_valid_error_global
@@ -117,33 +122,18 @@ class Train(object):
             finale_output = Dense(1,activation=self.activation_f)(house_output)
             model = Model(inputs=house_input, outputs=finale_output)
             return model
-    
+
     def parallel_model(self, model):
         parallel_model = multi_gpu_model(model, gpus=2)
         return parallel_model
-    
+
     def cus_loss(self, y_true, y_pred):
         price_error = K.abs(1 - K.exp(y_true - y_pred))
         loss = K.mean(price_error)
         return loss
 
-    def dataset(self):
-        parser = argparse.ArgumentParser()
+    def dataset(self,train_df,logerror_df):
 
-        parser.add_argument('--buckets', type=str,
-                            default='Data', help='input data path')
-
-        FLAGS, _ = parser.parse_known_args()
-        train_file_path = os.path.join(FLAGS.buckets, "zillow-model-data-original")
-
-        #train_file_path = "data/zillow-model-data-original"
-
-        with tf.gfile.Open(train_file_path, 'rb') as f:
-            raw_data = f.read()
-            data = pickle.loads(raw_data)
-
-        train_df = data['train_df']
-        logerror_df = data['logerror_df']
 
         train_end = self.train_init + self.model_num * self.forward
         self.train = train_df[: train_end].values
