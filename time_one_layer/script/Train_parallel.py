@@ -79,6 +79,11 @@ class BasicTrain(object):
 
         model = self.build_model()
         model2 = model
+        parser = argparse.ArgumentParser()
+        parser.add_argument('--checkpointDir', type=str, default='model',
+                            help='output model path')
+        FLAGS, _ = parser.parse_known_args()
+        output_path = os.path.join(FLAGS.checkpointDir)
         #model2 = self.parallel_model(model)
         history = self.LossHistory()
         callback = [EarlyStopping(monitor='val_loss', patience=5, mode='min', min_delta=0.0002), history]
@@ -87,14 +92,14 @@ class BasicTrain(object):
                    validation_data=([X_valid, macro_valid_days], Y_valid),
                    batch_size=self.batch_size, epochs=self.MAX_EPOCH, callbacks=callback, shuffle=False, verbose=2)
 
-        valid_error = history.losses[-1]
+        valid_error = history.val_losses['epoch'][-1]
         if valid_error < self.best_valid_error_global:
             better_param = True
             self.best_valid_error_global = valid_error
             y = model2.predict([X_test, macro_test_days])
             acc = np.mean(np.abs(1 - np.exp((Y_test - y) * 2.6314527302300394)))
             self.test_error_global = acc
-
+        history.loss_plot("epoch",output_path,self.test_error_global,self.network_params)
         print 'best_valid_error_global:', self.best_valid_error_global
         print 'current_test_error_global: ', self.test_error_global
         return valid_error, self.best_valid_error_global, self.test_error_global, better_param
