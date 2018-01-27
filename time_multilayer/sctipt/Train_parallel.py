@@ -8,7 +8,7 @@ import numpy as np
 import tensorflow as tf
 from keras import backend as K
 from keras.optimizers import SGD, RMSprop, Adadelta, Adam
-
+import argparse
 
 class BasicTrain(object):
     def __init__(self, network_params, model_params, timeseries_params, best_valid_error, test_error):

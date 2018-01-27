@@ -8,6 +8,7 @@ import numpy as np
 import tensorflow as tf
 from keras import backend as K
 from keras.optimizers import SGD, RMSprop, Adadelta, Adam
+import argparse
 
 
 class BasicTrain(object):
