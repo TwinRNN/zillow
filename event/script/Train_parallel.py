@@ -72,8 +72,8 @@ class Train(object):
         # print(Y_train.shape)
 
         model = self.build_model()
-        # model2 = self.parallel_model(model)
-        model2 =model
+        model2 = self.parallel_model(model)
+        # model2 =model
         model2.summary()
         history = self.LossHistory()
         callback = [EarlyStopping(monitor='val_loss', patience=5, mode='min',min_delta=0.0002), history]

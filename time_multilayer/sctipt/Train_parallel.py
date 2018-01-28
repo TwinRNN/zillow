@@ -10,7 +10,7 @@ from keras import backend as K
 from keras.optimizers import SGD, RMSprop, Adadelta, Adam
 import argparse
 import os
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 
 class BasicTrain(object):
     def __init__(self, network_params, model_params, timeseries_params, best_valid_error, test_error):
@@ -95,14 +95,15 @@ class BasicTrain(object):
         macro_valid_months = np.reshape(macro_valid_months, (-1, self.seq_len, self.time_series_step_months, self.timeseries_feature_size))
         macro_test_months = np.reshape(macro_test_months, (-1, self.seq_len, self.time_series_step_months, self.timeseries_feature_size))
 
-        callback = [EarlyStopping(monitor='val_loss', patience=5, mode='min', min_delta=0.002), history]
+        callback = [EarlyStopping(monitor='val_loss', patience=5, mode='min', min_delta=0.0002), history]
 
         model = self.build_model()
-        model2 = model#self.parallel_model(model)
+        # model2 = model#
+        model2 = self.parallel_model(model)
         model2.compile(loss=self.cus_loss, optimizer=optimizer)
         model2.fit([X_train, macro_train_days, macro_train_weeks, macro_train_months], Y_train,
                    validation_data=([X_valid, macro_valid_days, macro_valid_weeks, macro_valid_months], Y_valid),
-                   batch_size=self.batch_size, epochs=self.MAX_EPOCH, callbacks=callback, shuffle=False, verbose=2)
+                   batch_size=self.batch_size * 2, epochs=self.MAX_EPOCH, callbacks=callback, shuffle=False, verbose=2)
 
         valid_error = history.val_losses["epoch"][-1]
         if valid_error < self.best_valid_error_global:
@@ -112,7 +113,7 @@ class BasicTrain(object):
             acc = np.mean(np.abs(1 - np.exp((Y_test - y) * 2.9934360612936413)))
             self.test_error_global = acc
         # history.loss_plot("epoch",self.output_dir, self.test_error_global, self.network_params)
-        history.loss_write(self.output_dir, self.test_error_global, self.network_params)
+        history.loss_write(self.output_dir, better_param, self.test_error_global, self.network_params, self.model_num)
         print 'best_valid_error_global:', self.best_valid_error_global
         print 'best_valid_error_global:', self.best_valid_error_global
         print 'current_test_error_global: ', self.test_error_global
@@ -201,22 +202,23 @@ class BasicTrain(object):
             plt.savefig("{0}/{1}_{2}.png".format(output_dir,acc,network_params))
 
 
-        def loss_write(self, output_dir, acc, network_params):
-            file_name = str(acc)+'_'+str(network_params)+'.txt'
+        def loss_write(self, output_dir, better_param, acc, network_params, model_num):
+            file_name = 'multi' + '_' + str(model_num)+ '_' + str(network_params)+'.txt'
             output_path =  os.path.join(output_dir, file_name)
             with tf.gfile.GFile(output_path, 'wb') as wf:
+                wf.write('model_num: ')
+                wf.write(str(model_num) + '\n')
                 wf.write('model_params: ')
                 wf.write(str(network_params) + '\n')
-                wf.write('acc: ')
-                wf.write(str(acc) + '\n')
                 wf.write('val_loss_epoch:')
                 wf.write(str(self.val_losses["epoch"]) + '\n')
                 wf.write('train_loss_epoch:')
                 wf.write(str(self.train_losses["epoch"]) + '\n')
-                wf.write('train_loss_batch:')
-                wf.write(str(self.train_losses["batch"]) + '\n')
-             
-
+                # wf.write('train_loss_batch:')
+                # wf.write(str(self.train_losses["batch"]) + '\n')
+                if better_param:
+                    wf.write('acc: ')
+                    wf.write(str(acc) + '\n')
             '''
             X_val,Y_val = self.val
             loss=self.model2.evaluate(X_val,Y_val,verbose=0)
