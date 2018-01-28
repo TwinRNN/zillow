@@ -55,17 +55,16 @@ class Train(object):
         self.test_error_global = test_error
 
         self.dataset(train_df, logerror_df)
+        parser = argparse.ArgumentParser()
+        parser.add_argument('--buckets', type=str, default='',
+                        help='output model path')
+        FLAGS, _ = parser.parse_known_args()
+        self.output_dir = FLAGS.buckets
 
     def build(self):
-
         better_param = False
 
-
-
         X_train = np.reshape(self.train, [-1, self.seq_len, self.feature_size])
-        '''
-        TODO: ??? VAL SHAPE
-        '''
         X_val = np.reshape(self.valid, [1, -1, self.feature_size])
         Y_train = np.reshape(self.tr_logerror, [-1, self.seq_len, 1])
         Y_val = np.reshape(self.valid_logerror, [1, -1, 1])
@@ -73,17 +72,10 @@ class Train(object):
         # print(Y_train.shape)
 
         model = self.build_model()
-
-        model2 = self.parallel_model(model)
-        #model2 =model
+        #model2 = self.parallel_model(model)
+        model2 =model
         model2.summary()
-        parser = argparse.ArgumentParser()
-        parser.add_argument('--checkpointDir', type=str, default='model',
-                            help='output model path')
-        FLAGS, _ = parser.parse_known_args()
-        output_path = os.path.join(FLAGS.checkpointDir)
         history = self.LossHistory()
-
         callback = [EarlyStopping(monitor='val_loss', patience=5, mode='min',min_delta=0.0002), history]
         #build the map of opt
         opt = {"0": SGD(lr=self.learning_rate, decay=self.decay_rate),
@@ -91,9 +83,7 @@ class Train(object):
                 "2": Adadelta(lr=self.learning_rate, decay=self.decay_rate),
                 "3": Adam(lr=self.learning_rate, decay=self.decay_rate)}
         optimizer = opt["%d" % self.optimizer]
-
         model2.compile(loss="mse", optimizer=optimizer)
-
         model2.fit(X_train, Y_train, epochs=self.MAX_EPOCH, batch_size=self.batch_size * 2,
                    callbacks=callback, validation_data=(X_val, Y_val), shuffle=False, verbose=2)
 
@@ -107,24 +97,14 @@ class Train(object):
             acc = np.mean(np.abs(1 - np.exp((Y_test - y) * 2.9934360612936413)))
             self.test_error_global = acc
 
-        history.loss_plot("epoch", output_path, self.test_error_global, self.network_params)
+        # history.loss_plot("epoch", output_path, self.test_error_global, self.network_params)
+        history.loss_write(self.output_dir, self.test_error_global, self.network_params)
         print 'best_valid_error_global:', self.best_valid_error_global
         print 'current_test_error_global: ', self.test_error_global
         return valid_error, self.best_valid_error_global, self.test_error_global, better_param
 
     def build_model(self):
         with tf.device('/cpu:0'):
-            '''
-            #this kind of model will be abandoned
-            model = Sequential()
-            cells = [LSTMCell(self.state_size) for _ in range(2)]
-            cell = StackedRNNCells(cells)
-            model.add(RNN(cell, return_sequences=True, input_shape=[None, self.feature_size]))
-            model.add(Dense(1))
-            '''
-            #add the activation Function
-            #add initializer
-            #add dropout layer
             house_input = Input(shape=(None, self.feature_size), dtype='float32')
             house_middle = LSTM(self.state_size, return_sequences=True, activation=self.activation_f,
                                 kernel_initializer=self.initializer, dropout=self.keep)(house_input)
@@ -168,10 +148,10 @@ class Train(object):
             self.val_losses["epoch"].append(logs.get('val_loss'))
             self.train_losses["epoch"].append(logs.get('loss'))
 
-        def on_batch_end(self,batch,logs={}):
+        def on_batch_end(self, batch, logs={}):
             self.train_losses["batch"].append(logs.get('loss'))
 
-        def loss_plot(self, loss_type, output_path, acc, network_params):
+        def loss_plot(self, loss_type, output_dir, acc, network_params):
             iters = range(len(self.train_losses[loss_type]))
             iters2 = range(len(self.train_losses["batch"]))
             plt.figure()
@@ -189,5 +169,23 @@ class Train(object):
             plt.xlabel("batch")
             plt.ylabel('loss')
             plt.legend(loc='upper right')
-            plt.savefig("{0}/{1}_{2}.png".format(output_path,acc,network_params))
+            plt.savefig("{0}/{1}_{2}.png".format(output_dir,acc,network_params))
+
+        def loss_write(self, output_dir, acc, network_params):
+            file_name = str(acc)+'_'+str(network_params)+'.txt'
+            output_path =  os.path.join(output_dir, file_name)
+            with tf.gfile.GFile(output_path, 'wb') as wf:
+                wf.write('model_params: ')
+                wf.write(str(network_params) + '\n')
+                wf.write('acc: ')
+                wf.write(str(acc) + '\n')
+                wf.write('val_loss_epoch:')
+                wf.write(str(self.val_losses["epoch"]) + '\n')
+                wf.write('train_loss_epoch:')
+                wf.write(str(self.train_losses["epoch"]) + '\n')
+                wf.write('train_loss_batch:')
+                wf.write(str(self.train_losses["batch"]) + '\n')
+             
+
+            
         

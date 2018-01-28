@@ -8,11 +8,12 @@ import numpy as np
 import tensorflow as tf
 from keras import backend as K
 from keras.optimizers import SGD, RMSprop, Adadelta, Adam
-import argparse
-import matplotlib
-matplotlib.use('agg')
+# import argparse
+# import matplotlib
+# matplotlib.use('agg')
 import matplotlib.pyplot as plt
 import os
+import argparse
 
 
 class BasicTrain(object):
@@ -58,6 +59,12 @@ class BasicTrain(object):
         self.best_valid_error_global = best_valid_error
         self.test_error_global = test_error
 
+        parser = argparse.ArgumentParser()
+        parser.add_argument('--buckets', type=str, default='',
+                        help='output model path')
+        FLAGS, _ = parser.parse_known_args()
+        self.output_dir = FLAGS.buckets
+
     def build(self, event_data, time_data):
         better_param = False
         dataset = dataset_zillow.Dataset(self.batch_size, self.seq_len, self.time_series_params, event_data, time_data)
@@ -85,12 +92,6 @@ class BasicTrain(object):
         model = self.build_model()
         # model2 = self.parallel_model(model)
         model2 = model
-        parser = argparse.ArgumentParser()
-        parser.add_argument('--checkpointDir', type=str, default='model',
-                            help='output model path')
-        FLAGS, _ = parser.parse_known_args()
-        output_path = os.path.join(FLAGS.checkpointDir)
-        #model2 = self.parallel_model(model)
         history = self.LossHistory()
         callback = [EarlyStopping(monitor='val_loss', patience=5, mode='min', min_delta=0.0002), history]
         model2.compile(loss="mse", optimizer=optimizer)
@@ -105,7 +106,8 @@ class BasicTrain(object):
             y = model2.predict([X_test, macro_test_days])
             acc = np.mean(np.abs(1 - np.exp((Y_test - y) *  2.9934360612936413)))
             self.test_error_global = acc
-        history.loss_plot("epoch", output_path, self.test_error_global, self.network_params)
+        # history.loss_plot("epoch", output_path, self.test_error_global, self.network_params)
+        history.loss_write(self.output_dir, self.test_error_global, self.network_params)
         print 'best_valid_error_global:', self.best_valid_error_global
         print 'current_test_error_global: ', self.test_error_global
         return valid_error, self.best_valid_error_global, self.test_error_global, better_param
@@ -158,7 +160,7 @@ class BasicTrain(object):
         def on_batch_end(self, batch, logs={}):
             self.train_losses["batch"].append(logs.get('loss'))
 
-        def loss_plot(self, loss_type, output_path, acc, network_params):
+        def loss_plot(self, loss_type, output_dir, acc, network_params):
             iters = range(len(self.train_losses[loss_type]))
             iters2 = range(len(self.train_losses["batch"]))
             plt.figure()
@@ -176,4 +178,20 @@ class BasicTrain(object):
             plt.xlabel("batch")
             plt.ylabel('loss')
             plt.legend(loc='upper right')
-            plt.savefig("{0}/{1}_{2}.png".format(output_path, acc, network_params))
+            plt.savefig("{0}/{1}_{2}.png".format(output_dir, acc, network_params))
+
+        def loss_write(self, output_dir, acc, network_params):
+            file_name = str(acc)+'_'+str(network_params)+'.txt'
+            output_path =  os.path.join(output_dir, file_name)
+            with tf.gfile.GFile(output_path, 'wb') as wf:
+                wf.write('model_params: ')
+                wf.write(str(network_params) + '\n')
+                wf.write('acc: ')
+                wf.write(str(acc) + '\n')
+                wf.write('val_loss_epoch:')
+                wf.write(str(self.val_losses["epoch"]) + '\n')
+                wf.write('train_loss_epoch:')
+                wf.write(str(self.train_losses["epoch"]) + '\n')
+                wf.write('train_loss_batch:')
+                wf.write(str(self.train_losses["batch"]) + '\n')
+             

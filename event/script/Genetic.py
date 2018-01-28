@@ -144,36 +144,26 @@ if __name__ == '__main__':
     parser.add_argument('--valid_num', type=int,
                         default=2560, help='validation points')
     parser.add_argument('--test_num', type=int, default=2560, help='test points')
+    parser.add_argument('--buckets', type=str,
+                        default='Data', help='input data path')
     # parser.add_argument('--time_series', type=bool, default=False, help='whether use times series data or not')
     # parser.add_argument('--delay_google', type=int, default=0, help='leading dates of google')
     # parser.add_argument('--delay_tweeter', type=int, default=0, help='leading dates of tweeter')
     # parser.add_argument('--delay_macro', type=int, default=0, help='leading dates of macro data')
     # parser.add_argument('--time_series_step', type=int, default=30, help='length of background information')
     FLAGS, _ = parser.parse_known_args()
-
+    
     model_params = {'train_init': FLAGS.train_init, 'model_num': FLAGS.model_index, 'valid_num': FLAGS.valid_num,
                     'test_num': FLAGS.test_num, 'max_step': FLAGS.max_step, 'forward': FLAGS.forward}
 
-    # best_params = []
-    # errors = []
-    # output= []
-
-
-    parser.add_argument('--buckets', type=str,
-                        default='Data', help='input data path')
-
-    FLAGS, _ = parser.parse_known_args()
     train_file_path = os.path.join(FLAGS.buckets, "zillow-model-data-original")
-
-    #train_file_path = "data/zillow-model-data-original"
-
     with tf.gfile.Open(train_file_path, 'rb') as f:
         raw_data = f.read()
         data = pickle.loads(raw_data)
-
     train_df = data['train_df']
     logerror_df = data['logerror_df']
     model_index = FLAGS.model_index.split(',')
+
     for index in model_index:
         print('model: ', index)
         model_params['model_num'] = int(index)
@@ -182,7 +172,7 @@ if __name__ == '__main__':
         file_name = 'output_model_%s_pop_%d_gen_%d.txt' % (
             index, FLAGS.population, FLAGS.generation)
         output_path = os.path.join(FLAGS.checkpointDir, file_name)
-        print('output_path:', output_path)
+        # print('output_path:', output_path)
         with tf.gfile.Open(output_path, 'wb') as wf:
             wf.write('model_num: ')
             wf.write(str(index) + '\n')
