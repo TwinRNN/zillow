@@ -10,9 +10,9 @@ import pickle
 from keras import backend as K
 import argparse
 import os
-import matplotlib
-matplotlib.use('agg')
-import matplotlib.pyplot as plt
+# import matplotlib
+# matplotlib.use('agg')
+# import matplotlib.pyplot as plt
 import sys
 
 reload(sys)
@@ -104,10 +104,10 @@ class Train(object):
             X_test = self.test.reshape(1, -1, self.feature_size)
             Y_test = self.test_logerror.reshape((1, -1, 1))
             y = model2.predict(X_test)
-            acc = np.mean(np.abs(1 - np.exp((Y_test - y) * 2.6314527302300394)))
+            acc = np.mean(np.abs(1 - np.exp((Y_test - y) * 2.9934360612936413)))
             self.test_error_global = acc
 
-        history.loss_plot("epoch",output_path,self.test_error_global,self.network_params)
+        history.loss_plot("epoch", output_path, self.test_error_global, self.network_params)
         print 'best_valid_error_global:', self.best_valid_error_global
         print 'current_test_error_global: ', self.test_error_global
         return valid_error, self.best_valid_error_global, self.test_error_global, better_param
@@ -163,13 +163,15 @@ class Train(object):
         def on_train_begin(self, logs={}):
             self.val_losses = {"epoch":[]}
             self.train_losses = {"epoch":[],"batch":[]}
+
         def on_epoch_end(self, batch, logs={}):
             self.val_losses["epoch"].append(logs.get('val_loss'))
             self.train_losses["epoch"].append(logs.get('loss'))
+
         def on_batch_end(self,batch,logs={}):
             self.train_losses["batch"].append(logs.get('loss'))
 
-        def loss_plot(self,loss_type,output_path,acc,network_params):
+        def loss_plot(self, loss_type, output_path, acc, network_params):
             iters = range(len(self.train_losses[loss_type]))
             iters2 = range(len(self.train_losses["batch"]))
             plt.figure()
@@ -182,15 +184,10 @@ class Train(object):
             plt.ylabel('loss')
             plt.legend(loc="upper right")
             plt.subplot(2,1,2)
-            plt.plot(iters2,self.train_losses["batch"],'r',label='train loss each batch')
+            plt.plot(iters2, self.train_losses["batch"], 'r', label='train loss each batch')
             plt.grid(True)
             plt.xlabel("batch")
             plt.ylabel('loss')
             plt.legend(loc='upper right')
             plt.savefig("{0}/{1}_{2}.png".format(output_path,acc,network_params))
-
-            '''
-            X_val,Y_val = self.val
-            loss=self.model2.evaluate(X_val,Y_val,verbose=0)
-            self.losses.append(loss)
-            '''
+        

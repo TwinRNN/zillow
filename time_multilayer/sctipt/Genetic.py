@@ -8,12 +8,12 @@ from bitstring import BitArray
 from deap import base, creator, tools, algorithms
 import numpy as np
 from keras.initializers import zeros, TruncatedNormal, Orthogonal, RandomUniform
-FLAGS = None
+import pickle
 
 
 class Genetic(object):
 
-    def __init__(self, population, generation, model_param):
+    def __init__(self, population, generation, model_param, event_data, macro_days, macro_weeks, macro_months):
         """
         :param count:  count (int): Number of networks to generate, aka the size of the population
         """
@@ -66,7 +66,7 @@ class Genetic(object):
             network_params, self.model_param, timeseries_params,
             self.best_valid_error_global, self.test_error)
 
-        best_local, best_global, test_error, better_param = net.build()
+        best_local, best_global, test_error, better_param = net.build(event_data, macro_days, macro_weeks, macro_months)
         self.best_valid_error_global = best_global
         self.test_error = test_error
         if better_param:
@@ -164,6 +164,8 @@ if __name__ == '__main__':
     parser.add_argument('--valid_num', type=int,
                         default=2560, help='validation points')
     parser.add_argument('--test_num', type=int, default=2560, help='test points')
+    parser.add_argument('--buckets', type=str,
+                            default='Data', help='input data path')
     # parser.add_argument('--time_series', type=bool, default=False, help='whether use times series data or not')
     # parser.add_argument('--delay_google', type=int, default=0, help='leading dates of google')
     # parser.add_argument('--delay_tweeter', type=int, default=0, help='leading dates of tweeter')
@@ -174,6 +176,30 @@ if __name__ == '__main__':
     model_params = {'train_init': FLAGS.train_init, 'model_num': FLAGS.model_index, 'valid_num': FLAGS.valid_num,
                     'test_num': FLAGS.test_num, 'max_epoch': FLAGS.max_epoch, 'forward': FLAGS.forward}
 
+    # Read data
+    train_file_path = os.path.join(FLAGS.buckets, "zillow-model-data-original")
+    train_file_path2 = os.path.join(FLAGS.buckets, "model_time_day")
+    train_file_path3 = os.path.join(FLAGS.buckets, "model_time_week")
+    train_file_path4 = os.path.join(FLAGS.buckets, "model_time_month")
+
+    with tf.gfile.Open(train_file_path, 'rb') as f:
+        raw_data = f.read()
+        event_data = pickle.loads(raw_data)
+
+    with tf.gfile.Open(train_file_path2, 'rb') as f:
+        raw_data = f.read()
+        data = pickle.loads(raw_data)
+        macro_days = data['macro']
+
+    with tf.gfile.Open(train_file_path3, 'rb') as f:
+        raw_data = f.read()
+        data = pickle.loads(raw_data)
+        macro_weeks = data['macro']
+
+    with tf.gfile.Open(train_file_path4,'rb') as f:
+        raw_data = f.read()
+        data = pickle.loads(raw_data)
+        macro_months = data['macro']
     # best_params = []
     # errors = []
     # output= []
@@ -182,7 +208,7 @@ if __name__ == '__main__':
     for index in model_index:
         print('model: ', index)
         model_params['model_num'] = int(index)
-        G = Genetic(FLAGS.population, FLAGS.generation, model_params)
+        G = Genetic(FLAGS.population, FLAGS.generation, model_params, event_data, macro_days, macro_weeks, macro_months)
         best_ind, valid_err, test_error = G.search()
         file_name = 'output_model_%s_pop_%d_gen_%d.txt' % (
             index, FLAGS.population, FLAGS.generation)

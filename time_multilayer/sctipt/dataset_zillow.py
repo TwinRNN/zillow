@@ -8,59 +8,45 @@ import tensorflow as tf
 
 class Dataset(object):
 
-    def __init__(self, batch_size, seq_len, time_series_params):
+    def __init__(self, batch_size, seq_len, time_series_params, event_data, macro_days, macro_weeks, macro_months):
         # time_series starting on 2014.12.28
-        # transation date starting on 2016.1.1
-        MAP = 369
+        # transation date starting on 2015.8.1
+        MAP = 216
         # print('read features')
         parser = argparse.ArgumentParser()
 
         # 配置训练数据的地址
-        parser.add_argument('--buckets', type=str,
-                            default='', help='input data path')
+        # parser.add_argument('--buckets', type=str,
+                            # default='', help='input data path')
         # 配置模型保存地址
-        parser.add_argument('--output_dir', type=str,
-                            default='', help='output model path')
+        # parser.add_argument('--output_dir', type=str,
+                            # default='', help='output model path')
 
-        FLAGS, _ = parser.parse_known_args()
+        """FLAGS, _ = parser.parse_known_args()
         train_file_path = os.path.join(FLAGS.buckets, "zillow-model-data-original")
         train_file_path2 = os.path.join(FLAGS.buckets, "model_time_day")
         train_file_path3 = os.path.join(FLAGS.buckets, "model_time_week")
-        train_file_path4 = os.path.join(FLAGS.buckets, "model_time_month")
+        train_file_path4 = os.path.join(FLAGS.buckets, "model_time_month")"""
 
-        with tf.gfile.Open(train_file_path, 'rb') as f:
-            raw_data = f.read()
-            data = pickle.loads(raw_data)
-            self.train_df = data['train_df'][: 150000]
-            self.logerror_df = data['logerror_df'][: 150000]
-            self.transactiondate_df = data['transactiondate_df'][: 150000]
+        self.train_df = event_data['train_df'][: 150000]
+        self.logerror_df = event_data['logerror_df'][: 150000]
+        self.transactiondate_df = event_data['transactiondate_df'][: 150000]
 
-        with tf.gfile.Open(train_file_path2, 'rb') as f:
-            raw_data = f.read()
-            data = pickle.loads(raw_data)
-            self.macro_days = data['macro']
-            self.google_days = self.macro_days[:, : 15]
-            self.economy_days = self.macro_days[:, 15: 23]
-            self.tweet_days = self.macro_days[:, 23: 29]
-            self.tweet_re_days = self.macro_days[:, 29: 35]
+        self.google_days = macro_days[:, : 15]
+        self.economy_days = macro_days[:, 15: 23]
+        self.tweet_days = macro_days[:, 23: 29]
+        self.tweet_re_days = macro_days[:, 29: 35]
+        self.feature_size_time = macro_days.shape[1]
 
-        with tf.gfile.Open(train_file_path3, 'rb') as f:
-            raw_data = f.read()
-            data = pickle.loads(raw_data)
-            self.macro_weeks = data['macro']
-            self.google_weeks = self.macro_weeks[:, : 15]
-            self.economy_weeks = self.macro_weeks[:, 15: 23]
-            self.tweet_weeks = self.macro_weeks[:, 23: 29]
-            self.tweet_re_weeks = self.macro_weeks[:, 29: 35]
+        self.google_weeks = macro_weeks[:, : 15]
+        self.economy_weeks = macro_weeks[:, 15: 23]
+        self.tweet_weeks = macro_weeks[:, 23: 29]
+        self.tweet_re_weeks = macro_weeks[:, 29: 35]
 
-        with tf.gfile.Open(train_file_path4,'rb') as f:
-            raw_data = f.read()
-            data = pickle.loads(raw_data)
-            self.macro_months = data['macro']
-            self.google_months = self.macro_months[:, : 15]
-            self.economy_months = self.macro_months[:, 15: 23]
-            self.tweet_months = self.macro_months[:, 23: 29]
-            self.tweet_re_months = self.macro_months[:, 29: 35]
+        self.google_months = macro_months[:, : 15]
+        self.economy_months = macro_months[:, 15: 23]
+        self.tweet_months = macro_months[:, 23: 29]
+        self.tweet_re_months = macro_months[:, 29: 35]
 
         self.batch_size = batch_size
         self.seq_len = seq_len
@@ -126,8 +112,7 @@ class Dataset(object):
         self.size = self.train.shape[0]
 
     def feature_size(self):
-        feature_size = {'event': self.train_df.shape[
-            1], "time": self.macro_days.shape[1]}
+        feature_size = {'event': self.train_df.shape[1], "time": self.feature_size_time}
         return feature_size
 
     def get_time_series(self, transactiondate, cursor, batch, seq_len,

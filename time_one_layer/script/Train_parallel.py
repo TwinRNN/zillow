@@ -9,6 +9,10 @@ import tensorflow as tf
 from keras import backend as K
 from keras.optimizers import SGD, RMSprop, Adadelta, Adam
 import argparse
+import matplotlib
+matplotlib.use('agg')
+import matplotlib.pyplot as plt
+import os
 
 
 class BasicTrain(object):
@@ -79,6 +83,7 @@ class BasicTrain(object):
         optimizer = opt["%d" % self.optimizer]
 
         model = self.build_model()
+        # model2 = self.parallel_model(model)
         model2 = model
         parser = argparse.ArgumentParser()
         parser.add_argument('--checkpointDir', type=str, default='model',
@@ -98,9 +103,9 @@ class BasicTrain(object):
             better_param = True
             self.best_valid_error_global = valid_error
             y = model2.predict([X_test, macro_test_days])
-            acc = np.mean(np.abs(1 - np.exp((Y_test - y) * 2.6314527302300394)))
+            acc = np.mean(np.abs(1 - np.exp((Y_test - y) *  2.9934360612936413)))
             self.test_error_global = acc
-        history.loss_plot("epoch",output_path,self.test_error_global,self.network_params)
+        history.loss_plot("epoch", output_path, self.test_error_global, self.network_params)
         print 'best_valid_error_global:', self.best_valid_error_global
         print 'current_test_error_global: ', self.test_error_global
         return valid_error, self.best_valid_error_global, self.test_error_global, better_param
@@ -140,9 +145,35 @@ class BasicTrain(object):
         loss = K.mean(price_error)
         return loss
 
+    
     class LossHistory(Callback):
         def on_train_begin(self, logs={}):
-            self.losses = []
+            self.val_losses = {"epoch": []}
+            self.train_losses = {"epoch": [], "batch": []}
 
         def on_epoch_end(self, batch, logs={}):
-            self.losses.append(logs.get('val_loss'))
+            self.val_losses["epoch"].append(logs.get('val_loss'))
+            self.train_losses["epoch"].append(logs.get('loss'))
+
+        def on_batch_end(self, batch, logs={}):
+            self.train_losses["batch"].append(logs.get('loss'))
+
+        def loss_plot(self, loss_type, output_path, acc, network_params):
+            iters = range(len(self.train_losses[loss_type]))
+            iters2 = range(len(self.train_losses["batch"]))
+            plt.figure()
+            plt.subplot(2, 1, 1)
+            plt.plot(iters, self.train_losses[loss_type], 'g', label='train loss')
+            if loss_type == 'epoch':
+                plt.plot(iters, self.val_losses[loss_type], 'k', label='val loss')
+            plt.grid(True)
+            plt.xlabel(loss_type)
+            plt.ylabel('loss')
+            plt.legend(loc="upper right")
+            plt.subplot(2, 1, 2)
+            plt.plot(iters2, self.train_losses["batch"], 'r', label='train loss each batch')
+            plt.grid(True)
+            plt.xlabel("batch")
+            plt.ylabel('loss')
+            plt.legend(loc='upper right')
+            plt.savefig("{0}/{1}_{2}.png".format(output_path, acc, network_params))

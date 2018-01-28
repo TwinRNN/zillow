@@ -11,7 +11,7 @@ class Dataset(object):
     def __init__(self, batch_size, seq_len, time_series_params, event_data, time_data):
         # time_series starting on 2014.12.28
         # transation date starting on 2016.1.1
-        MAP = 369
+        MAP = 216
         # print('read features')
         parser = argparse.ArgumentParser()
 

@@ -9,6 +9,8 @@ import tensorflow as tf
 from keras import backend as K
 from keras.optimizers import SGD, RMSprop, Adadelta, Adam
 import argparse
+import os
+import matplotlib.pyplot as plt
 
 class BasicTrain(object):
     def __init__(self, network_params, model_params, timeseries_params, best_valid_error, test_error):
@@ -25,7 +27,7 @@ class BasicTrain(object):
         self.seq_len = network_params['seq_len']
         self.state_size = network_params['state_size']
         self.learning_rate = network_params['lr']
-        self.keep = 1.0-network_params['pkeep']
+        self.keep = 1.0 - network_params['pkeep']
         self.optimizer = network_params['optimizer']
         self.decay_rate = network_params['dr']
         self.activation_f = network_params['activation_f']
@@ -55,10 +57,11 @@ class BasicTrain(object):
         self.best_valid_error_global = best_valid_error
         self.test_error_global = test_error
 
-    def build(self):
+    def build(self, event_data, macro_days, macro_weeks, macro_months):
         better_param = False
-        dataset = dataset_zillow.Dataset(self.batch_size, self.seq_len, self.time_series_params)
-        dataset.split(self.forward,self.train_init,self.valid_num,self.test_num,self.model_num)
+        dataset = dataset_zillow.Dataset(self.batch_size, self.seq_len, self.time_series_params, 
+            event_data, macro_days, macro_weeks, macro_months)
+        dataset.split(self.forward,self.train_init, self.valid_num, self.test_num, self.model_num)
         X_train, Y_train, macro_train_days, macro_train_weeks, macro_train_months, \
         X_valid, Y_valid, macro_valid_days, macro_valid_weeks, macro_valid_months,\
         X_test, Y_test, macro_test_days, macro_test_weeks, macro_test_months,\
@@ -78,18 +81,18 @@ class BasicTrain(object):
                "2": Adadelta(lr=self.learning_rate, decay=self.decay_rate),
                "3": Adam(lr=self.learning_rate, decay=self.decay_rate)}
         optimizer = opt["%d" % self.optimizer]
-        X_valid=np.reshape(X_valid,(-1,self.seq_len,self.event_feature_size))
-        Y_valid = np.reshape(Y_valid,(-1,self.seq_len,1))
-        X_test=np.reshape(X_test,(-1,self.seq_len,self.event_feature_size))
-        Y_test = np.reshape(Y_test,(-1,self.seq_len,1))
-        macro_valid_days = np.reshape(macro_valid_days,(-1,self.seq_len,self.time_series_step_days,self.timeseries_feature_size))
-        macro_test_days = np.reshape(macro_test_days,(-1,self.seq_len,self.time_series_step_days,self.timeseries_feature_size))
-        macro_valid_weeks=np.reshape(macro_valid_weeks,(-1,self.seq_len,self.time_series_step_weeks,self.timeseries_feature_size))
-        macro_test_weeks=np.reshape(macro_test_weeks,(-1,self.seq_len,self.time_series_step_weeks,self.timeseries_feature_size))
-        macro_valid_months=np.reshape(macro_valid_months,(-1,self.seq_len,self.time_series_step_months,self.timeseries_feature_size))
-        macro_test_months=np.reshape(macro_test_months,(-1,self.seq_len,self.time_series_step_months,self.timeseries_feature_size))
+        X_valid = np.reshape(X_valid, (-1, self.seq_len, self.event_feature_size))
+        Y_valid = np.reshape(Y_valid, (-1, self.seq_len, 1))
+        X_test = np.reshape(X_test, (-1, self.seq_len, self.event_feature_size))
+        Y_test = np.reshape(Y_test, (-1, self.seq_len, 1))
+        macro_valid_days = np.reshape(macro_valid_days, (-1, self.seq_len, self.time_series_step_days, self.timeseries_feature_size))
+        macro_test_days = np.reshape(macro_test_days, (-1, self.seq_len, self.time_series_step_days, self.timeseries_feature_size))
+        macro_valid_weeks = np.reshape(macro_valid_weeks, (-1, self.seq_len, self.time_series_step_weeks, self.timeseries_feature_size))
+        macro_test_weeks = np.reshape(macro_test_weeks, (-1, self.seq_len, self.time_series_step_weeks, self.timeseries_feature_size))
+        macro_valid_months = np.reshape(macro_valid_months, (-1, self.seq_len, self.time_series_step_months, self.timeseries_feature_size))
+        macro_test_months = np.reshape(macro_test_months, (-1, self.seq_len, self.time_series_step_months, self.timeseries_feature_size))
 
-        callback = [EarlyStopping(monitor='val_loss', patience=10, mode='min',min_delta=0.002), history]
+        callback = [EarlyStopping(monitor='val_loss', patience=5, mode='min', min_delta=0.002), history]
 
         model = self.build_model()
         model2 = model#self.parallel_model(model)
@@ -98,14 +101,14 @@ class BasicTrain(object):
                    validation_data=([X_valid, macro_valid_days, macro_valid_weeks, macro_valid_months], Y_valid),
                    batch_size=self.batch_size, epochs=self.MAX_EPOCH, callbacks=callback, shuffle=False)
 
-        valid_error = history.losses[-1]
+        valid_error = history.val_losses["epoch"][-1]
         if valid_error < self.best_valid_error_global:
             better_param = True
             self.best_valid_error_global = valid_error
             y = model2.predict([X_test, macro_test_days, macro_test_weeks, macro_test_months])
-            acc = np.mean(np.abs(1 - np.exp(Y_test - y)))
+            acc = np.mean(np.abs(1 - np.exp((Y_test - y) * 2.9934360612936413)))
             self.test_error_global = acc
-        history.loss_plot("epoch",output_path,self.test_error_global,self.network_params)
+        history.loss_plot("epoch",output_path, self.test_error_global, self.network_params)
         print 'best_valid_error_global:', self.best_valid_error_global
         print 'current_test_error_global: ', self.test_error_global
         return valid_error, self.best_valid_error_global, self.test_error_global, better_param
@@ -139,7 +142,7 @@ class BasicTrain(object):
             macro_output_weeks = Lambda(lambda x:K.reshape(x,(-1, self.seq_len, self.state_size)))(macro_output_weeks)
 
             macro_input_months = Input(shape=(None, self.time_series_step_months,self.timeseries_feature_size), dtype='float32')
-            macro_reshape_months = Lambda(lambda x: K.reshape(x, (-1, self.time_series_step_weeks, self.timeseries_feature_size)), name='Reshape3')(macro_input_months)
+            macro_reshape_months = Lambda(lambda x: K.reshape(x, (-1, self.time_series_step_months, self.timeseries_feature_size)), name='Reshape3')(macro_input_months)
             macro_middle_months = LSTM(self.state_size, return_sequences=True, activation=self.activation_f,
                                      kernel_initializer=self.initializer, dropout=self.keep)(macro_reshape_months)
             macro_output_months = LSTM(self.state_size, return_sequences=False, activation=self.activation_f,
@@ -184,8 +187,8 @@ class BasicTrain(object):
             plt.xlabel(loss_type)
             plt.ylabel('loss')
             plt.legend(loc="upper right")
-            plt.subplot(2,1,2)
-            plt.plot(iters2,self.train_losses["batch"],'r',label='train loss each batch')
+            plt.subplot(2, 1, 2)
+            plt.plot(iter2, self.train_losses["batch"], 'r', label='train loss each batch')
             plt.grid(True)
             plt.xlabel("batch")
             plt.ylabel('loss')
