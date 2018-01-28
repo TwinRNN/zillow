@@ -72,8 +72,8 @@ class Train(object):
         # print(Y_train.shape)
 
         model = self.build_model()
-        model2 = self.parallel_model(model)
-        # model2 =model
+        # model2 = self.parallel_model(model)
+        model2 =model
         model2.summary()
         history = self.LossHistory()
         callback = [EarlyStopping(monitor='val_loss', patience=5, mode='min',min_delta=0.0002), history]
@@ -98,7 +98,7 @@ class Train(object):
             self.test_error_global = acc
 
         # history.loss_plot("epoch", output_path, self.test_error_global, self.network_params)
-        history.loss_write(self.output_dir, self.test_error_global, self.network_params)
+        history.loss_write(self.output_dir, better_param, self.test_error_global, self.network_params, self.model_num)
         print 'best_valid_error_global:', self.best_valid_error_global
         print 'current_test_error_global: ', self.test_error_global
         return valid_error, self.best_valid_error_global, self.test_error_global, better_param
@@ -155,7 +155,7 @@ class Train(object):
             iters = range(len(self.train_losses[loss_type]))
             iters2 = range(len(self.train_losses["batch"]))
             plt.figure()
-            plt.subplot(2,1,1)
+            plt.subplot(2, 1, 1)
             plt.plot(iters, self.train_losses[loss_type], 'g', label='train loss')
             if loss_type == 'epoch':
                 plt.plot(iters, self.val_losses[loss_type], 'k', label='val loss')
@@ -163,7 +163,7 @@ class Train(object):
             plt.xlabel(loss_type)
             plt.ylabel('loss')
             plt.legend(loc="upper right")
-            plt.subplot(2,1,2)
+            plt.subplot(2, 1, 2)
             plt.plot(iters2, self.train_losses["batch"], 'r', label='train loss each batch')
             plt.grid(True)
             plt.xlabel("batch")
@@ -171,20 +171,23 @@ class Train(object):
             plt.legend(loc='upper right')
             plt.savefig("{0}/{1}_{2}.png".format(output_dir,acc,network_params))
 
-        def loss_write(self, output_dir, acc, network_params):
-            file_name = str(acc)+'_'+str(network_params)+'.txt'
+        def loss_write(self, output_dir, better_param, acc, network_params, model_num):
+            file_name = str(model_num) + '_' + str(network_params)+'.txt'
             output_path =  os.path.join(output_dir, file_name)
             with tf.gfile.GFile(output_path, 'wb') as wf:
+                wf.write('model_num: ')
+                wf.write(str(model_num) + '\n')
                 wf.write('model_params: ')
                 wf.write(str(network_params) + '\n')
-                wf.write('acc: ')
-                wf.write(str(acc) + '\n')
                 wf.write('val_loss_epoch:')
                 wf.write(str(self.val_losses["epoch"]) + '\n')
                 wf.write('train_loss_epoch:')
                 wf.write(str(self.train_losses["epoch"]) + '\n')
                 wf.write('train_loss_batch:')
                 wf.write(str(self.train_losses["batch"]) + '\n')
+                if better_param:
+                    wf.write('acc: ')
+                    wf.write(str(acc) + '\n')
              
 
             
