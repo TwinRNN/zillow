@@ -10,8 +10,8 @@ import pickle
 from keras import backend as K
 import argparse
 import os
-import matplotlib
-matplotlib.use('pdf')
+# import matplotlib
+# matplotlib.use('pdf')
 import matplotlib.pyplot as plt
 import sys
 
@@ -41,6 +41,7 @@ class Train(object):
         """
         parameters for models evolving over time
         """
+        self.batch_interval = model_params['batch_interval']
         self.train_init = model_params['train_init']
         self.model_num = model_params['model_num']
         # self.model_step = model_params['model_step']
@@ -56,24 +57,24 @@ class Train(object):
 
         self.dataset(train_df, logerror_df)
         parser = argparse.ArgumentParser()
-        parser.add_argument('--buckets', type=str, default='',
+        parser.add_argument('--checkpointDir', type=str, default='model',
                         help='output model path')
         FLAGS, _ = parser.parse_known_args()
-        self.output_dir = FLAGS.buckets
+        self.output_dir = FLAGS.checkpointDir
 
     def build(self):
         better_param = False
 
         X_train = np.reshape(self.X_train, [-1, self.seq_len, self.feature_size])
-        X_val = np.reshape(self.X_valid, [-1,self.seq_len , self.feature_size])
-        Y_train = np.reshape(self.Y_train,[-1,1])
-        Y_val = np.reshape(self.Y_valid,[-1,1])#np.reshape(self.valid_logerror, [1, -1, 1])
+        X_val = np.reshape(self.X_valid, [-1, self.seq_len , self.feature_size])
+        Y_train = np.reshape(self.Y_train,[-1, 1])
+        Y_val = np.reshape(self.Y_valid,[-1, 1])#np.reshape(self.valid_logerror, [1, -1, 1])
         print(X_train.shape)
         print(Y_train.shape)
 
         model = self.build_model()
-        model2 = model#self.parallel_model(model)
-        # model2 =model
+        # model2 = self.parallel_model(model)
+        model2 =model
         model2.summary()
         history = self.LossHistory()
         callback = [EarlyStopping(monitor='val_loss', patience=5, mode='min',min_delta=0.0002), history]
@@ -92,7 +93,7 @@ class Train(object):
             better_param = True
             self.best_valid_error_global = valid_error
             X_test = np.reshape(self.X_test,[-1,self.seq_len,self.feature_size])
-            Y_test = np.reshape(self.Y_test,[-1,1])#self.test_logerror.reshape((1, -1, 1))
+            Y_test = np.reshape(self.Y_test,[-1, 1])#self.test_logerror.reshape((1, -1, 1))
             y = model2.predict(X_test)
             acc = np.mean(np.abs(1 - np.exp((Y_test - y) * 2.9934360612936413)))
             self.test_error_global = acc
@@ -127,31 +128,31 @@ class Train(object):
 
         train_end = self.train_init + self.model_num * self.forward
         self.train = train_df[: train_end].values
-        self.tr_logerror = logerror_df[: (train_end+1)].values
+        self.tr_logerror = logerror_df[: (train_end)].values
 
         valid_end = train_end + self.valid_num
         self.valid = train_df[train_end: valid_end].values
-        self.valid_logerror = logerror_df[train_end: (valid_end+1)].values
+        self.valid_logerror = logerror_df[train_end: (valid_end)].values
 
         test_end = valid_end + self.test_num
         self.test = train_df[valid_end: test_end].values
-        self.test_logerror = logerror_df[valid_end: (test_end+1)].values
+        self.test_logerror = logerror_df[valid_end: (test_end)].values
         self.X_train=[]
         self.Y_train=[]
         self.X_valid=[]
         self.Y_valid=[]
         self.X_test=[]
         self.Y_test=[]
-        for i in range(0,train_end,self.seq_len):
+        for i in range(0, train_end - self.seq_len, self.batch_interval):
             #print(i)
-            self.X_train.append(self.train[i:(i+self.seq_len)])
-            self.Y_train.append(self.tr_logerror[i+self.seq_len])
-        for i in range(0,self.valid_num,self.seq_len):
-            self.X_valid.append(self.valid[i:(i+self.seq_len)])
-            self.Y_valid.append(self.valid_logerror[i+self.seq_len])
-        for i in range(0,self.test_num,self.seq_len):
-            self.X_test.append(self.test[i:(i+self.seq_len)])
-            self.Y_test.append(self.test_logerror[i+self.seq_len])
+            self.X_train.append(self.train[i: (i + self.seq_len)])
+            self.Y_train.append(self.tr_logerror[i + self.seq_len - 1])
+        for i in range(0,self.valid_num, self.seq_len):
+            self.X_valid.append(self.valid[i: (i + self.seq_len)])
+            self.Y_valid.append(self.valid_logerror[i + self.seq_len - 1])
+        for i in range(0, self.test_num, self.seq_len):
+            self.X_test.append(self.test[i :(i + self.seq_len)])
+            self.Y_test.append(self.test_logerror[i + self.seq_len - 1])
         self.feature_size = train_df.shape[1]
 
     class LossHistory(Callback):
@@ -170,7 +171,7 @@ class Train(object):
             iters = range(len(self.train_losses[loss_type]))
             iters2 = range(len(self.train_losses["batch"]))
             plt.figure()
-            plt.subplot(2,1,1)
+            plt.subplot(2, 1, 1)
             plt.plot(iters, self.train_losses[loss_type], 'g', label='train loss')
             if loss_type == 'epoch':
                 plt.plot(iters, self.val_losses[loss_type], 'k', label='val loss')
@@ -178,7 +179,7 @@ class Train(object):
             plt.xlabel(loss_type)
             plt.ylabel('loss')
             plt.legend(loc="upper right")
-            plt.subplot(2,1,2)
+            plt.subplot(2, 1, 2)
             plt.plot(iters2, self.train_losses["batch"], 'r', label='train loss each batch')
             plt.grid(True)
             plt.xlabel("batch")

@@ -96,7 +96,7 @@ class Genetic(object):
         NUM_NET_2 = 8  # for the rest network params
 
         # netowr_params
-        BATCH_SIZE = [5,5, 10, 20]
+        BATCH_SIZE = [8 ,16, 32, 64]
         SEQ_LEN = [16, 32, 64, 128]
         STATE_SIZE = [16, 32, 64, 128]
         LR = list(np.logspace(-3, -6, 16))
@@ -146,6 +146,8 @@ if __name__ == '__main__':
     parser.add_argument('--test_num', type=int, default=2560, help='test points')
     parser.add_argument('--buckets', type=str,
                         default='Data', help='input data path')
+    parser.add_argument('--batch_interval', type=int,
+                        default=8, help='forward steps between two adjacent batches')
     # parser.add_argument('--time_series', type=bool, default=False, help='whether use times series data or not')
     # parser.add_argument('--delay_google', type=int, default=0, help='leading dates of google')
     # parser.add_argument('--delay_tweeter', type=int, default=0, help='leading dates of tweeter')
@@ -154,7 +156,7 @@ if __name__ == '__main__':
     FLAGS, _ = parser.parse_known_args()
 
     model_params = {'train_init': FLAGS.train_init, 'model_num': FLAGS.model_index, 'valid_num': FLAGS.valid_num,
-                    'test_num': FLAGS.test_num, 'max_step': FLAGS.max_step, 'forward': FLAGS.forward}
+                    'test_num': FLAGS.test_num, 'max_step': FLAGS.max_step, 'forward': FLAGS.forward, 'batch_interval': FLAGS.batch_interval}
 
     train_file_path = os.path.join(FLAGS.buckets, "zillow-model-data-original")
     with tf.gfile.Open(train_file_path, 'rb') as f:
