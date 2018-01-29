@@ -10,9 +10,9 @@ import pickle
 from keras import backend as K
 import argparse
 import os
-# import matplotlib
-# matplotlib.use('agg')
-# import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use('pdf')
+import matplotlib.pyplot as plt
 import sys
 
 reload(sys)
@@ -64,15 +64,15 @@ class Train(object):
     def build(self):
         better_param = False
 
-        X_train = np.reshape(self.train, [-1, self.seq_len, self.feature_size])
-        X_val = np.reshape(self.valid, [1, -1, self.feature_size])
-        Y_train = np.reshape(self.tr_logerror, [-1, self.seq_len, 1])
-        Y_val = np.reshape(self.valid_logerror, [1, -1, 1])
-        # print(X_train.shape)
-        # print(Y_train.shape)
+        X_train = np.reshape(self.X_train, [-1, self.seq_len, self.feature_size])
+        X_val = np.reshape(self.X_valid, [-1,self.seq_len , self.feature_size])
+        Y_train = np.reshape(self.Y_train,[-1,1])
+        Y_val = np.reshape(self.Y_valid,[-1,1])#np.reshape(self.valid_logerror, [1, -1, 1])
+        print(X_train.shape)
+        print(Y_train.shape)
 
         model = self.build_model()
-        model2 = self.parallel_model(model)
+        model2 = model#self.parallel_model(model)
         # model2 =model
         model2.summary()
         history = self.LossHistory()
@@ -91,14 +91,14 @@ class Train(object):
         if valid_error < self.best_valid_error_global:
             better_param = True
             self.best_valid_error_global = valid_error
-            X_test = self.test.reshape(1, -1, self.feature_size)
-            Y_test = self.test_logerror.reshape((1, -1, 1))
+            X_test = np.reshape(self.X_test,[-1,self.seq_len,self.feature_size])
+            Y_test = np.reshape(self.Y_test,[-1,1])#self.test_logerror.reshape((1, -1, 1))
             y = model2.predict(X_test)
             acc = np.mean(np.abs(1 - np.exp((Y_test - y) * 2.9934360612936413)))
             self.test_error_global = acc
 
-        # history.loss_plot("epoch", output_path, self.test_error_global, self.network_params)
-        history.loss_write(self.output_dir, better_param, self.test_error_global, self.network_params, self.model_num)
+        history.loss_plot("epoch", self.output_dir, self.test_error_global, self.network_params)
+        history.loss_write(self.output_dir, self.test_error_global, self.network_params)
         print 'best_valid_error_global:', self.best_valid_error_global
         print 'current_test_error_global: ', self.test_error_global
         return valid_error, self.best_valid_error_global, self.test_error_global, better_param
@@ -108,7 +108,7 @@ class Train(object):
             house_input = Input(shape=(None, self.feature_size), dtype='float32')
             house_middle = LSTM(self.state_size, return_sequences=True, activation=self.activation_f,
                                 kernel_initializer=self.initializer, dropout=self.keep)(house_input)
-            house_output = LSTM(self.state_size, return_sequences=True, activation=self.activation_f,
+            house_output = LSTM(self.state_size, return_sequences=False, activation=self.activation_f,
                                 kernel_initializer=self.initializer, dropout=self.keep)(house_middle)
             finale_output = Dense(1, activation=self.activation_f)(house_output)
             model = Model(inputs=house_input, outputs=finale_output)
@@ -127,16 +127,31 @@ class Train(object):
 
         train_end = self.train_init + self.model_num * self.forward
         self.train = train_df[: train_end].values
-        self.tr_logerror = logerror_df[: train_end].values
+        self.tr_logerror = logerror_df[: (train_end+1)].values
 
         valid_end = train_end + self.valid_num
         self.valid = train_df[train_end: valid_end].values
-        self.valid_logerror = logerror_df[train_end: valid_end].values
+        self.valid_logerror = logerror_df[train_end: (valid_end+1)].values
 
         test_end = valid_end + self.test_num
         self.test = train_df[valid_end: test_end].values
-        self.test_logerror = logerror_df[valid_end: test_end].values
-
+        self.test_logerror = logerror_df[valid_end: (test_end+1)].values
+        self.X_train=[]
+        self.Y_train=[]
+        self.X_valid=[]
+        self.Y_valid=[]
+        self.X_test=[]
+        self.Y_test=[]
+        for i in range(0,train_end,self.seq_len):
+            #print(i)
+            self.X_train.append(self.train[i:(i+self.seq_len)])
+            self.Y_train.append(self.tr_logerror[i+self.seq_len])
+        for i in range(0,self.valid_num,self.seq_len):
+            self.X_valid.append(self.valid[i:(i+self.seq_len)])
+            self.Y_valid.append(self.valid_logerror[i+self.seq_len])
+        for i in range(0,self.test_num,self.seq_len):
+            self.X_test.append(self.test[i:(i+self.seq_len)])
+            self.Y_test.append(self.test_logerror[i+self.seq_len])
         self.feature_size = train_df.shape[1]
 
     class LossHistory(Callback):
@@ -155,7 +170,7 @@ class Train(object):
             iters = range(len(self.train_losses[loss_type]))
             iters2 = range(len(self.train_losses["batch"]))
             plt.figure()
-            plt.subplot(2, 1, 1)
+            plt.subplot(2,1,1)
             plt.plot(iters, self.train_losses[loss_type], 'g', label='train loss')
             if loss_type == 'epoch':
                 plt.plot(iters, self.val_losses[loss_type], 'k', label='val loss')
@@ -163,7 +178,7 @@ class Train(object):
             plt.xlabel(loss_type)
             plt.ylabel('loss')
             plt.legend(loc="upper right")
-            plt.subplot(2, 1, 2)
+            plt.subplot(2,1,2)
             plt.plot(iters2, self.train_losses["batch"], 'r', label='train loss each batch')
             plt.grid(True)
             plt.xlabel("batch")
@@ -171,24 +186,17 @@ class Train(object):
             plt.legend(loc='upper right')
             plt.savefig("{0}/{1}_{2}.png".format(output_dir,acc,network_params))
 
-        def loss_write(self, output_dir, better_param, acc, network_params, model_num):
-            file_name = str(model_num) + '_' + str(network_params)+'.txt'
+        def loss_write(self, output_dir, acc, network_params):
+            file_name = str(acc)+'_'+str(network_params)+'.txt'
             output_path =  os.path.join(output_dir, file_name)
             with tf.gfile.GFile(output_path, 'wb') as wf:
-                wf.write('model_num: ')
-                wf.write(str(model_num) + '\n')
                 wf.write('model_params: ')
                 wf.write(str(network_params) + '\n')
+                wf.write('acc: ')
+                wf.write(str(acc) + '\n')
                 wf.write('val_loss_epoch:')
                 wf.write(str(self.val_losses["epoch"]) + '\n')
                 wf.write('train_loss_epoch:')
                 wf.write(str(self.train_losses["epoch"]) + '\n')
                 wf.write('train_loss_batch:')
                 wf.write(str(self.train_losses["batch"]) + '\n')
-                if better_param:
-                    wf.write('acc: ')
-                    wf.write(str(acc) + '\n')
-             
-
-            
-        

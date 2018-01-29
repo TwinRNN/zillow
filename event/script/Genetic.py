@@ -96,7 +96,7 @@ class Genetic(object):
         NUM_NET_2 = 8  # for the rest network params
 
         # netowr_params
-        BATCH_SIZE = [8, 16, 32, 64]
+        BATCH_SIZE = [5,5, 10, 20]
         SEQ_LEN = [16, 32, 64, 128]
         STATE_SIZE = [16, 32, 64, 128]
         LR = list(np.logspace(-3, -6, 16))
@@ -152,7 +152,7 @@ if __name__ == '__main__':
     # parser.add_argument('--delay_macro', type=int, default=0, help='leading dates of macro data')
     # parser.add_argument('--time_series_step', type=int, default=30, help='length of background information')
     FLAGS, _ = parser.parse_known_args()
-    
+
     model_params = {'train_init': FLAGS.train_init, 'model_num': FLAGS.model_index, 'valid_num': FLAGS.valid_num,
                     'test_num': FLAGS.test_num, 'max_step': FLAGS.max_step, 'forward': FLAGS.forward}
 
